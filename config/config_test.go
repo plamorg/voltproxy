@@ -15,6 +15,31 @@ var equateErrorMessage = cmp.Comparer(func(x, y error) bool {
 	return x.Error() == y.Error()
 })
 
+func TestValidateServices(t *testing.T) {
+	tests := map[string]struct {
+		services map[string]Service
+		err      error
+	}{
+		"no services": {map[string]Service{},
+			nil},
+		"service with address": {map[string]Service{"a": {Host: "b", Address: "c"}},
+			nil},
+		"service with container": {map[string]Service{"a": {Host: "b", Container: &container{"c", "d", 0}}},
+			nil},
+		"service with no container/address": {map[string]Service{"bad": {Host: "b"}},
+			errors.New("service \"bad\" must have exactly one of container and address")},
+		"service with both container and address": {map[string]Service{"invalid": {Host: "b", Address: "c", Container: &container{"d", "e", 1}}},
+			errors.New("service \"invalid\" must have exactly one of container and address")},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			if err := validateServices(test.services); !cmp.Equal(test.err, err, equateErrorMessage) {
+				t.Errorf("expected error %v got error %v", test.err, err)
+			}
+		})
+	}
+}
+
 func TestParse(t *testing.T) {
 	tests := map[string]struct {
 		data   []byte
@@ -63,14 +88,14 @@ services:
     address: https://invalid.example.com
     `),
 			nil,
-			errors.New("service invalid has both container and address")},
+			errors.New("service \"invalid\" must have exactly one of container and address")},
 		"service with neither address no container": {
 			[]byte(`
 services:
   wrong:
     `),
 			nil,
-			errors.New("service wrong has neither container nor address")},
+			errors.New("service \"wrong\" must have exactly one of container and address")},
 	}
 
 	for name, test := range tests {

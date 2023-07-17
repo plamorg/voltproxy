@@ -31,11 +31,8 @@ func validateServices(services map[string]Service) error {
 			hasContainer = service.Container != nil
 			hasAddress   = service.Address != ""
 		)
-		if hasContainer && hasAddress {
-			return fmt.Errorf("service %s has both container and address", name)
-		}
-		if !hasContainer && !hasAddress {
-			return fmt.Errorf("service %s has neither container nor address", name)
+		if hasContainer == hasAddress {
+			return fmt.Errorf("service \"%s\" must have exactly one of container and address", name)
 		}
 	}
 	return nil
