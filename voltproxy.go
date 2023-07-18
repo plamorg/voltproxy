@@ -87,6 +87,10 @@ func reverseProxy(config voltconfig.Config) (http.HandlerFunc, error) {
 
 func main() {
 	configData, err := os.ReadFile("./config.yml")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	config, err := voltconfig.Parse(configData)
 	if err != nil {
 		log.Fatal(err)
