@@ -1,4 +1,4 @@
-package voltconfig
+package config
 
 import (
 	"errors"
@@ -17,18 +17,18 @@ var equateErrorMessage = cmp.Comparer(func(x, y error) bool {
 
 func TestValidateServices(t *testing.T) {
 	tests := map[string]struct {
-		services map[string]Service
+		services serviceList
 		err      error
 	}{
-		"no services": {map[string]Service{},
+		"no services": {serviceList{},
 			nil},
-		"service with address": {map[string]Service{"a": {Host: "b", Address: "c"}},
+		"service with address": {serviceList{"a": {Host: "b", Redirect: "c"}},
 			nil},
-		"service with container": {map[string]Service{"a": {Host: "b", Container: &container{"c", "d", 0}}},
+		"service with container": {serviceList{"a": {Host: "b", Container: &containerInfo{"c", "d", 0}}},
 			nil},
-		"service with no container/address": {map[string]Service{"bad": {Host: "b"}},
+		"service with no container/address": {serviceList{"bad": {Host: "b"}},
 			errors.New("service \"bad\" must have exactly one of container and address")},
-		"service with both container and address": {map[string]Service{"invalid": {Host: "b", Address: "c", Container: &container{"d", "e", 1}}},
+		"service with both container and address": {serviceList{"invalid": {Host: "b", Redirect: "c", Container: &containerInfo{"d", "e", 1}}},
 			errors.New("service \"invalid\" must have exactly one of container and address")},
 	}
 	for name, test := range tests {
@@ -53,10 +53,10 @@ func TestParse(t *testing.T) {
 services:
   example:
     host: host.example.com
-    address: https://example.com
+    redirect: https://example.com
     `),
-			&Config{map[string]Service{
-				"example": {Host: "host.example.com", Address: "https://example.com"}}},
+			&Config{serviceList{
+				"example": {Host: "host.example.com", Redirect: "https://example.com"}}},
 			nil},
 		"two services": {
 			[]byte(`
@@ -69,11 +69,11 @@ services:
         port: 1234
   b:
     host: bhost
-    address: https://b.example.com
+    redirect: https://b.example.com
     `),
-			&Config{map[string]Service{
-				"a": {Host: "ahost", Container: &container{"test", "net", 1234}},
-				"b": {Host: "bhost", Address: "https://b.example.com"},
+			&Config{serviceList{
+				"a": {Host: "ahost", Container: &containerInfo{"test", "net", 1234}},
+				"b": {Host: "bhost", Redirect: "https://b.example.com"},
 			}},
 			nil},
 		"service with both address and container": {
@@ -85,7 +85,7 @@ services:
         name: "a"
         network: "b"
         port: 8080
-    address: https://invalid.example.com
+    redirect: https://invalid.example.com
     `),
 			nil,
 			errors.New("service \"invalid\" must have exactly one of container and address")},

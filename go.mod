@@ -1,4 +1,4 @@
-module voltproxy
+module github.com/plamorg/voltproxy
 
 go 1.20
 
