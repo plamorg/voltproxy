@@ -16,15 +16,15 @@ func TestFindServiceWithHostSuccess(t *testing.T) {
 	}{
 		"single service": {
 			"example.com",
-			[]services.Service{services.NewRedirect("example.com", "remoteA")},
+			[]services.Service{services.NewRedirect("example.com", nil, "remoteA")},
 			"example.com", "remoteA",
 		},
 		"multiple services": {
 			"this.example.com",
 			[]services.Service{
-				services.NewRedirect("example.com", "remoteA"),
-				services.NewRedirect("this.example.com", "remoteC"),
-				services.NewRedirect("another.example.com", "remoteB"),
+				services.NewRedirect("example.com", nil, "remoteA"),
+				services.NewRedirect("this.example.com", nil, "remoteC"),
+				services.NewRedirect("another.example.com", nil, "remoteB"),
 			},
 			"this.example.com", "remoteC",
 		},
@@ -60,7 +60,10 @@ func TestFindServiceWithHostFails(t *testing.T) {
 		},
 		"service not found": {
 			"example.com",
-			[]services.Service{services.NewRedirect("another.example.com", "remoteA"), services.NewRedirect("com", "remoteB")},
+			[]services.Service{
+				services.NewRedirect("another.example.com", nil, "remoteA"),
+				services.NewRedirect("com", nil, "remoteB"),
+			},
 			errNoServiceWithHost,
 		},
 	}

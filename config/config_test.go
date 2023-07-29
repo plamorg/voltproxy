@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types/network"
 	"github.com/google/go-cmp/cmp"
 	"github.com/plamorg/voltproxy/dockerapi"
+	"github.com/plamorg/voltproxy/middlewares"
 	"github.com/plamorg/voltproxy/services"
 )
 
@@ -36,7 +37,17 @@ func TestValidateServices(t *testing.T) {
 			nil,
 		},
 		"service with TLS": {
-			serviceMap{"bad": {Host: "a", Redirect: "b", TLS: true}},
+			serviceMap{"secure": {Host: "a", Redirect: "b", TLS: true}},
+			nil,
+		},
+		"service with middleware": {
+			serviceMap{
+				"mid": {
+					Host:     "host",
+					Redirect: "https://example.com",
+					Middlewares: &middlewareData{
+						IPAllow: middlewares.NewIPAllow([]string{"172.20.0.1"}),
+					}}},
 			nil,
 		},
 		"service with no container/address": {
@@ -165,7 +176,42 @@ services:
 	}
 }
 
-func TestServiceList(t *testing.T) {
+func TestParseWithMiddlewares(t *testing.T) {
+	data := []byte(`
+services:
+  service1:
+    host: service1.example.com
+    redirect: https://invalid.example.com
+    middlewares:
+      ipallow:
+        allowedips:
+          - 127.0.0.1
+          - 192.168.1.7
+    `)
+
+	expectedConfig := &Config{
+		serviceMap{
+			"service1": {
+				Host:     "service1.example.com",
+				Redirect: "https://invalid.example.com",
+				Middlewares: &middlewareData{
+					IPAllow: middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
+				},
+			},
+		},
+	}
+
+	config, err := Parse(data)
+	if err != nil {
+		t.Fatalf("unexpected error %v", err)
+	}
+
+	if !cmp.Equal(expectedConfig, config) {
+		t.Errorf("expected config %v got config %v", expectedConfig, config)
+	}
+}
+
+func TestConfigServiceList(t *testing.T) {
 	tests := map[string]struct {
 		conf     Config
 		expected []services.Service
@@ -186,7 +232,7 @@ func TestServiceList(t *testing.T) {
 				},
 			},
 			[]services.Service{
-				services.NewRedirect("a", "b"),
+				services.NewRedirect("a", nil, "b"),
 			},
 			nil,
 		},
@@ -223,7 +269,7 @@ func TestServiceList(t *testing.T) {
 
 }
 
-func TestServiceListWithContainers(t *testing.T) {
+func TestConfigServiceListWithContainers(t *testing.T) {
 	containers := []types.Container{
 		{
 			Names: []string{"b"},
@@ -252,7 +298,7 @@ func TestServiceListWithContainers(t *testing.T) {
 	}
 
 	expectedServices := []services.Service{
-		services.NewContainer(adapter, "a", services.ContainerInfo{
+		services.NewContainer(adapter, "a", nil, services.ContainerInfo{
 			Name:    "b",
 			Network: "c",
 			Port:    1234,
@@ -269,7 +315,7 @@ func TestServiceListWithContainers(t *testing.T) {
 	}
 }
 
-func TestTLSHosts(t *testing.T) {
+func TestConfigTLSHosts(t *testing.T) {
 	tests := map[string]struct {
 		conf     Config
 		expected []string
@@ -324,6 +370,35 @@ func TestTLSHosts(t *testing.T) {
 			hosts := test.conf.TLSHosts()
 			if !reflect.DeepEqual(test.expected, hosts) {
 				t.Errorf("expected hosts %v got hosts %v", test.expected, hosts)
+			}
+		})
+	}
+}
+
+func TestMiddlewareDataList(t *testing.T) {
+	tests := map[string]struct {
+		data     middlewareData
+		expected []middlewares.Middleware
+	}{
+		"no middlewares": {
+			middlewareData{},
+			nil,
+		},
+		"one middleware": {
+			middlewareData{
+				IPAllow: middlewares.NewIPAllow([]string{"a"}),
+			},
+			[]middlewares.Middleware{
+				middlewares.NewIPAllow([]string{"a"}),
+			},
+		},
+		// TODO: add tests for multiple middlewares.
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			middlewares := test.data.List()
+			if !reflect.DeepEqual(test.expected, middlewares) {
+				t.Errorf("expected middlewares %v got middlewares %v", test.expected, middlewares)
 			}
 		})
 	}

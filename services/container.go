@@ -5,6 +5,7 @@ import (
 	"net/url"
 
 	"github.com/plamorg/voltproxy/dockerapi"
+	"github.com/plamorg/voltproxy/middlewares"
 )
 
 // ErrNoMatchingContainer is returned when no matching container is found.
@@ -23,13 +24,16 @@ type ContainerInfo struct {
 // Container is a service that is running in a Docker container.
 type Container struct {
 	adapter *dockerapi.Adapter
-	host    string
-	info    ContainerInfo
+
+	host        string
+	middlewares []middlewares.Middleware
+
+	info ContainerInfo
 }
 
 // NewContainer creates a new service from a docker container.
-func NewContainer(adapter dockerapi.Adapter, host string, info ContainerInfo) *Container {
-	return &Container{&adapter, host, info}
+func NewContainer(adapter dockerapi.Adapter, host string, middlewares []middlewares.Middleware, info ContainerInfo) *Container {
+	return &Container{&adapter, host, middlewares, info}
 }
 
 // Host returns the host name of the docker service.
@@ -54,4 +58,9 @@ func (c *Container) Remote() (*url.URL, error) {
 		}
 	}
 	return nil, fmt.Errorf("%w: %s", ErrNoMatchingContainer, c.info.Name)
+}
+
+// Middlewares returns the middlewares associated with the container service.
+func (c *Container) Middlewares() []middlewares.Middleware {
+	return c.middlewares
 }

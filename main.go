@@ -58,7 +58,14 @@ func directToService(w http.ResponseWriter, r *http.Request, s []services.Servic
 
 	r.Host = remote.Host
 	proxy := httputil.NewSingleHostReverseProxy(remote)
-	proxy.ServeHTTP(w, r)
+	var handler http.Handler = proxy
+
+	middlewares := service.Middlewares()
+	for _, middleware := range middlewares {
+		handler = middleware.Handle(proxy)
+	}
+
+	handler.ServeHTTP(w, r)
 }
 
 func reverseProxy(services []services.Service, tlsHosts []string) (http.HandlerFunc, error) {
