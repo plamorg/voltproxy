@@ -4,30 +4,32 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/docker/docker/api/types"
+	"github.com/plamorg/voltproxy/dockerapi"
 )
+
+// ErrNoMatchingContainer is returned when no matching container is found.
+var ErrNoMatchingContainer = fmt.Errorf("no matching container")
+
+// ErrContainerNotInNetwork is returned when the container is not in the desired network.
+var ErrContainerNotInNetwork = fmt.Errorf("not in network")
+
+// ContainerInfo is the information needed to find a container.
+type ContainerInfo struct {
+	Name    string
+	Network string
+	Port    uint16
+}
 
 // Container is a service that is running in a Docker container.
 type Container struct {
-	host      string
-	ipAddress string
-	port      uint16
+	adapter *dockerapi.Adapter
+	host    string
+	info    ContainerInfo
 }
 
-// NewContainer creates a new service from a docker container,
-// requires context of the docker containers currently running.
-func NewContainer(containers []types.Container, host string, name string, network string, port uint16) (*Container, error) {
-	for _, c := range containers {
-		for _, n := range c.Names {
-			if n == name {
-				if endpoint, ok := c.NetworkSettings.Networks[network]; ok {
-					return &Container{host, endpoint.IPAddress, port}, nil
-				}
-				return nil, fmt.Errorf("container %s did not have network %s", name, network)
-			}
-		}
-	}
-	return nil, fmt.Errorf("no matching container with name %s", name)
+// NewContainer creates a new service from a docker container.
+func NewContainer(adapter dockerapi.Adapter, host string, info ContainerInfo) *Container {
+	return &Container{&adapter, host, info}
 }
 
 // Host returns the host name of the docker service.
@@ -35,7 +37,21 @@ func (c *Container) Host() string {
 	return c.host
 }
 
-// Remote returns the remote URL of the docker service.
+// Remote iterates through the list of containers and returns the remote of the matching container by name.
 func (c *Container) Remote() (*url.URL, error) {
-	return url.Parse(fmt.Sprintf("http://%s:%d", c.ipAddress, c.port))
+	containers, err := (*c.adapter).ContainerList()
+	if err != nil {
+		return nil, err
+	}
+	for _, container := range containers {
+		for _, n := range container.Names {
+			if n == c.info.Name {
+				if endpoint, ok := container.NetworkSettings.Networks[c.info.Network]; ok {
+					return url.Parse(fmt.Sprintf("http://%s:%d", endpoint.IPAddress, c.info.Port))
+				}
+				return nil, fmt.Errorf("%s: %w %s", c.info.Name, ErrContainerNotInNetwork, c.info.Network)
+			}
+		}
+	}
+	return nil, fmt.Errorf("%w: %s", ErrNoMatchingContainer, c.info.Name)
 }

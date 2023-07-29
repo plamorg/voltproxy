@@ -2,37 +2,29 @@
 package config
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"gopkg.in/yaml.v3"
 
+	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/services"
 )
 
 var errMustHaveOneService = fmt.Errorf("must have exactly one service")
 
-type containerInfo struct {
-	Name    string
-	Network string
-	Port    uint16
-}
-
-type serviceList map[string]struct {
+type serviceMap map[string]struct {
 	Host      string
 	TLS       bool
-	Container *containerInfo
+	Container *services.ContainerInfo
 	Redirect  string
 }
 
 // Config represents a listing of services to proxy.
 type Config struct {
-	Services serviceList
+	Services serviceMap
 }
 
-func validateServices(services serviceList) error {
+func validateServices(services serviceMap) error {
 	for name, service := range services {
 		var (
 			hasContainer = service.Container != nil
@@ -43,18 +35,6 @@ func validateServices(services serviceList) error {
 		}
 	}
 	return nil
-}
-
-func fetchContainers() ([]types.Container, error) {
-	cli, err := client.NewClientWithOpts(client.FromEnv)
-	if err != nil {
-		return nil, err
-	}
-	containers, err := cli.ContainerList(context.Background(), types.ContainerListOptions{})
-	if err != nil {
-		return nil, err
-	}
-	return containers, nil
 }
 
 // Parse parses data as YAML to return a Config.
@@ -71,20 +51,12 @@ func Parse(data []byte) (*Config, error) {
 	return &config, nil
 }
 
-// ListServices returns a list of services from the config.
-func (c *Config) ListServices() ([]services.Service, error) {
-	containers, err := fetchContainers()
-	if err != nil {
-		return nil, err
-	}
-
+// ServiceList returns a list of services from the config.
+func (c *Config) ServiceList(adapter dockerapi.Adapter) ([]services.Service, error) {
 	var s []services.Service
 	for _, service := range c.Services {
 		if service.Container != nil {
-			container, err := services.NewContainer(containers, service.Host, service.Container.Name, service.Container.Network, service.Container.Port)
-			if err != nil {
-				return nil, err
-			}
+			container := services.NewContainer(adapter, service.Host, *service.Container)
 			s = append(s, container)
 		} else if service.Redirect != "" {
 			s = append(s, services.NewRedirect(service.Host, service.Redirect))

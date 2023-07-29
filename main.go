@@ -2,6 +2,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -11,6 +12,7 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/plamorg/voltproxy/config"
+	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/services"
 )
 
@@ -43,6 +45,11 @@ func directToService(w http.ResponseWriter, r *http.Request, s []services.Servic
 	}
 
 	remote, err := service.Remote()
+	if errors.Is(err, services.ErrNoMatchingContainer) {
+		log.Println(err)
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
@@ -85,7 +92,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	services, err := conf.ListServices()
+	cli, err := dockerapi.NewClient()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	services, err := conf.ServiceList(cli)
 	if err != nil {
 		log.Fatal(err)
 	}
