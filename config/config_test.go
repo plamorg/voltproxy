@@ -8,13 +8,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-var equateErrorMessage = cmp.Comparer(func(x, y error) bool {
-	if x == nil || y == nil {
-		return x == nil && y == nil
-	}
-	return x.Error() == y.Error()
-})
-
 func TestValidateServices(t *testing.T) {
 	tests := map[string]struct {
 		services serviceList
@@ -38,16 +31,16 @@ func TestValidateServices(t *testing.T) {
 		},
 		"service with no container/address": {
 			serviceList{"bad": {Host: "b"}},
-			errors.New("service \"bad\" must have exactly one of container and address"),
+			errMustHaveOneService,
 		},
 		"service with both container and address": {
 			serviceList{"invalid": {Host: "b", Redirect: "c", Container: &containerInfo{"d", "e", 1}}},
-			errors.New("service \"invalid\" must have exactly one of container and address"),
+			errMustHaveOneService,
 		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := validateServices(test.services); !cmp.Equal(test.err, err, equateErrorMessage) {
+			if err := validateServices(test.services); !errors.Is(err, test.err) {
 				t.Errorf("expected error %v got error %v", test.err, err)
 			}
 		})
@@ -128,7 +121,7 @@ services:
         port: 8080
     redirect: https://invalid.example.com`),
 			nil,
-			errors.New("service \"invalid\" must have exactly one of container and address"),
+			errMustHaveOneService,
 		},
 		"service with neither address no container": {
 			[]byte(`
@@ -136,14 +129,14 @@ services:
   wrong:
     `),
 			nil,
-			errors.New("service \"wrong\" must have exactly one of container and address"),
+			errMustHaveOneService,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			config, err := Parse(test.data)
-			if !cmp.Equal(test.err, err, equateErrorMessage) {
+			if !errors.Is(err, test.err) {
 				t.Errorf("expected error %v got error %v", test.err, err)
 			}
 			if !cmp.Equal(test.expectedConfig, config) {

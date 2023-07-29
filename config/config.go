@@ -12,6 +12,8 @@ import (
 	"github.com/plamorg/voltproxy/services"
 )
 
+var errMustHaveOneService = fmt.Errorf("must have exactly one service")
+
 type containerInfo struct {
 	Name    string
 	Network string
@@ -37,7 +39,7 @@ func validateServices(services serviceList) error {
 			hasAddress   = service.Redirect != ""
 		)
 		if hasContainer == hasAddress {
-			return fmt.Errorf("service \"%s\" must have exactly one of container and address", name)
+			return fmt.Errorf("%s: %w", name, errMustHaveOneService)
 		}
 	}
 	return nil
