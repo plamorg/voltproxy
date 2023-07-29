@@ -20,16 +20,30 @@ func TestValidateServices(t *testing.T) {
 		services serviceList
 		err      error
 	}{
-		"no services": {serviceList{},
-			nil},
-		"service with address": {serviceList{"a": {Host: "b", Redirect: "c"}},
-			nil},
-		"service with container": {serviceList{"a": {Host: "b", Container: &containerInfo{"c", "d", 0}}},
-			nil},
-		"service with no container/address": {serviceList{"bad": {Host: "b"}},
-			errors.New("service \"bad\" must have exactly one of container and address")},
-		"service with both container and address": {serviceList{"invalid": {Host: "b", Redirect: "c", Container: &containerInfo{"d", "e", 1}}},
-			errors.New("service \"invalid\" must have exactly one of container and address")},
+		"no services": {
+			serviceList{},
+			nil,
+		},
+		"service with address": {
+			serviceList{"a": {Host: "b", Redirect: "c"}},
+			nil,
+		},
+		"service with container": {
+			serviceList{"a": {Host: "b", Container: &containerInfo{"c", "d", 0}}},
+			nil,
+		},
+		"service with TLS": {
+			serviceList{"bad": {Host: "a", Redirect: "b", TLS: true}},
+			nil,
+		},
+		"service with no container/address": {
+			serviceList{"bad": {Host: "b"}},
+			errors.New("service \"bad\" must have exactly one of container and address"),
+		},
+		"service with both container and address": {
+			serviceList{"invalid": {Host: "b", Redirect: "c", Container: &containerInfo{"d", "e", 1}}},
+			errors.New("service \"invalid\" must have exactly one of container and address"),
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -42,40 +56,67 @@ func TestValidateServices(t *testing.T) {
 
 func TestParse(t *testing.T) {
 	tests := map[string]struct {
-		data   []byte
-		config *Config
-		err    error
+		data           []byte
+		expectedConfig *Config
+		err            error
 	}{
-		"empty config": {[]byte(``), &Config{}, nil},
-		"no services":  {[]byte(`services:`), &Config{}, nil},
+		"empty config": {
+			[]byte(``),
+			&Config{},
+			nil,
+		},
+		"no services": {
+			[]byte(`services:`),
+			&Config{},
+			nil,
+		},
 		"one service": {
 			[]byte(`
 services:
   example:
     host: host.example.com
-    redirect: https://example.com
-    `),
-			&Config{serviceList{
-				"example": {Host: "host.example.com", Redirect: "https://example.com"}}},
-			nil},
+    redirect: https://example.com`),
+			&Config{
+				serviceList{
+					"example": {
+						Host:     "host.example.com",
+						TLS:      false,
+						Redirect: "https://example.com",
+					},
+				},
+			},
+			nil,
+		},
 		"two services": {
 			[]byte(`
 services:
   a:
     host: ahost
+    tls: false
     container:
         name: "test"
         network: "net"
         port: 1234
   b:
     host: bhost
-    redirect: https://b.example.com
-    `),
-			&Config{serviceList{
-				"a": {Host: "ahost", Container: &containerInfo{"test", "net", 1234}},
-				"b": {Host: "bhost", Redirect: "https://b.example.com"},
-			}},
-			nil},
+    tls: true
+    redirect: https://b.example.com`),
+			&Config{
+				serviceList{
+					"a": {
+						Host:      "ahost",
+						TLS:       false,
+						Container: &containerInfo{"test", "net", 1234},
+					},
+					"b": {
+						Host:     "bhost",
+						TLS:      true,
+						Redirect: "https://b.example.com",
+					},
+				},
+			},
+			nil,
+		},
 		"service with both address and container": {
 			[]byte(`
 services:
@@ -85,17 +126,18 @@ services:
         name: "a"
         network: "b"
         port: 8080
-    redirect: https://invalid.example.com
-    `),
+    redirect: https://invalid.example.com`),
 			nil,
-			errors.New("service \"invalid\" must have exactly one of container and address")},
+			errors.New("service \"invalid\" must have exactly one of container and address"),
+		},
 		"service with neither address no container": {
 			[]byte(`
 services:
   wrong:
     `),
 			nil,
-			errors.New("service \"wrong\" must have exactly one of container and address")},
+			errors.New("service \"wrong\" must have exactly one of container and address"),
+		},
 	}
 
 	for name, test := range tests {
@@ -104,10 +146,9 @@ services:
 			if !cmp.Equal(test.err, err, equateErrorMessage) {
 				t.Errorf("expected error %v got error %v", test.err, err)
 			}
-			if !cmp.Equal(test.config, config) {
-				t.Errorf("expected config %v got config %v", test.config, config)
+			if !cmp.Equal(test.expectedConfig, config) {
+				t.Errorf("expected config %v got config %v", test.expectedConfig, config)
 			}
 		})
 	}
-
 }

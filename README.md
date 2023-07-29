@@ -32,6 +32,5 @@ services:
 
 ## 🌟 Future Improvements
 
-- Automatic SSL certificate management with HTTPS support.
 - Support for custom middleware.
 - Enhanced logging and monitoring capabilities.

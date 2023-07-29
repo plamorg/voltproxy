@@ -20,11 +20,12 @@ type containerInfo struct {
 
 type serviceList map[string]struct {
 	Host      string
+	TLS       bool
 	Container *containerInfo
 	Redirect  string
 }
 
-// Config represents a listing of services to proxy
+// Config represents a listing of services to proxy.
 type Config struct {
 	Services serviceList
 }
@@ -88,4 +89,15 @@ func (c *Config) ListServices() ([]services.Service, error) {
 		}
 	}
 	return s, nil
+}
+
+// TLSHosts returns a list of hosts that require TLS.
+func (c *Config) TLSHosts() []string {
+	var hosts []string
+	for _, service := range c.Services {
+		if service.TLS {
+			hosts = append(hosts, service.Host)
+		}
+	}
+	return hosts
 }
