@@ -19,6 +19,7 @@ services:
     redirect: https://example.com
   service2:
     host: service2.com
+    tls: true
     container:
       name: container1
       network: network1
@@ -26,8 +27,9 @@ services:
 ```
 
 - Each service should have a unique name.
-- For services that redirect to a remote URL, provide the `host` and `redirect` fields.
-- For services running in Docker containers, provide the `host` and `container` fields.
+- Each service can optionally support HTTPS through TLS.
+- For services that redirect to a remote URL, provide the `redirect` field.
+- For services running in Docker containers, provide the `container` field.
   The `container` field should include the name, network, and port of the container.
 
 ## 🌟 Future Improvements
