@@ -214,7 +214,7 @@ services:
 func TestConfigServiceList(t *testing.T) {
 	tests := map[string]struct {
 		conf     Config
-		expected []services.Service
+		expected services.List
 		err      error
 	}{
 		"no services": {
@@ -231,7 +231,7 @@ func TestConfigServiceList(t *testing.T) {
 					},
 				},
 			},
-			[]services.Service{
+			services.List{
 				services.NewRedirect("a", nil, "b"),
 			},
 			nil,
@@ -297,7 +297,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 		},
 	}
 
-	expectedServices := []services.Service{
+	expectedServices := services.List{
 		services.NewContainer(adapter, "a", nil, services.ContainerInfo{
 			Name:    "b",
 			Network: "c",

@@ -60,8 +60,8 @@ func Parse(data []byte) (*Config, error) {
 }
 
 // ServiceList returns a list of services from the config.
-func (c *Config) ServiceList(adapter dockerapi.Adapter) ([]services.Service, error) {
-	var s []services.Service
+func (c *Config) ServiceList(adapter dockerapi.Adapter) (services.List, error) {
+	var s services.List
 	for _, service := range c.Services {
 		var middlewareList []middlewares.Middleware
 		if service.Middlewares != nil {

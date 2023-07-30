@@ -29,16 +29,13 @@ func TestIpAllowHandle(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			req, err := http.NewRequest("GET", "/", nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			req.RemoteAddr = test.remoteAddr
+			r := httptest.NewRequest("GET", "/", nil)
+			r.RemoteAddr = test.remoteAddr
 
-			rr := httptest.NewRecorder()
-			handler.ServeHTTP(rr, req)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, r)
 
-			if status := rr.Code; status != test.expectedStatus {
+			if status := w.Code; status != test.expectedStatus {
 				t.Errorf("handler returned wrong status code: got %v want %v",
 					status, test.expectedStatus)
 			}

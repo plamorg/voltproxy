@@ -2,11 +2,8 @@
 package main
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"os"
 
 	"golang.org/x/crypto/acme/autocert"
@@ -15,17 +12,6 @@ import (
 	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/services"
 )
-
-var errNoServiceWithHost = fmt.Errorf("no service with host")
-
-func findServiceWithHost(host string, services []services.Service) (services.Service, error) {
-	for _, service := range services {
-		if service.Host() == host {
-			return service, nil
-		}
-	}
-	return nil, fmt.Errorf("%w: %s", errNoServiceWithHost, host)
-}
 
 func contains(slice []string, item string) bool {
 	for _, s := range slice {
@@ -36,56 +22,24 @@ func contains(slice []string, item string) bool {
 	return false
 }
 
-func directToService(w http.ResponseWriter, r *http.Request, s []services.Service) {
-	service, err := findServiceWithHost(r.Host, s)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-
-	remote, err := service.Remote()
-	if errors.Is(err, services.ErrNoMatchingContainer) {
-		log.Println(err)
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-
-	r.Host = remote.Host
-	proxy := httputil.NewSingleHostReverseProxy(remote)
-	var handler http.Handler = proxy
-
-	middlewares := service.Middlewares()
-	for _, middleware := range middlewares {
-		handler = middleware.Handle(proxy)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-func reverseProxy(services []services.Service, tlsHosts []string) (http.HandlerFunc, error) {
+func reverseProxy(list services.List, tlsHosts []string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if contains(tlsHosts, r.Host) {
 			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
 		} else {
-			directToService(w, r, services)
+			list.Proxy(r, w)
 		}
-	}), nil
+	})
 }
 
-func reverseProxyTLS(services []services.Service, tlsHosts []string) (http.HandlerFunc, error) {
+func reverseProxyTLS(list services.List, tlsHosts []string) http.HandlerFunc {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if contains(tlsHosts, r.Host) {
-			directToService(w, r, services)
+			list.Proxy(r, w)
 		} else {
 			w.WriteHeader(http.StatusNotFound)
 		}
-	}), nil
+	})
 }
 
 func main() {
@@ -117,15 +71,9 @@ func main() {
 		Cache:      autocert.DirCache("_certs"),
 	}
 
-	handler, err := reverseProxy(services, tlsHosts)
-	if err != nil {
-		log.Fatal(err)
-	}
+	handler := reverseProxy(services, tlsHosts)
 
-	tlsHandler, err := reverseProxyTLS(services, tlsHosts)
-	if err != nil {
-		log.Fatal(err)
-	}
+	tlsHandler := reverseProxyTLS(services, tlsHosts)
 
 	tlsServer := &http.Server{
 		Addr:      ":https",
@@ -134,6 +82,6 @@ func main() {
 	}
 
 	log.Printf("Listening...")
-	go http.ListenAndServe(":http", certManager.HTTPHandler(handler))
+	go log.Fatal(http.ListenAndServe(":http", certManager.HTTPHandler(handler)))
 	log.Fatal(tlsServer.ListenAndServeTLS("", ""))
 }
