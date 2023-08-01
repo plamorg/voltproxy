@@ -82,6 +82,6 @@ func main() {
 	}
 
 	log.Printf("Listening...")
-	go log.Fatal(http.ListenAndServe(":http", certManager.HTTPHandler(handler)))
-	log.Fatal(tlsServer.ListenAndServeTLS("", ""))
+	go http.ListenAndServe(":http", certManager.HTTPHandler(handler))
+	tlsServer.ListenAndServeTLS("", "")
 }
