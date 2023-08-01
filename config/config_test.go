@@ -8,7 +8,6 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
-	"github.com/google/go-cmp/cmp"
 	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/middlewares"
 	"github.com/plamorg/voltproxy/services"
@@ -74,6 +73,18 @@ func TestValidateServices(t *testing.T) {
 				t.Errorf("expected error %v got error %v", test.err, err)
 			}
 		})
+	}
+}
+
+func TestParseInvalidSyntax(t *testing.T) {
+	data := []byte(`
+services:
+    - 123
+    - "abc"`)
+	_, err := Parse(data)
+
+	if err == nil {
+		t.Errorf("expected error, got nil")
 	}
 }
 
@@ -167,9 +178,9 @@ services:
 		t.Run(name, func(t *testing.T) {
 			config, err := Parse(test.data)
 			if !errors.Is(err, test.err) {
-				t.Errorf("expected error %v got error %v", test.err, err)
+				t.Fatalf("expected error %v got error %v", test.err, err)
 			}
-			if !cmp.Equal(test.expectedConfig, config) {
+			if !reflect.DeepEqual(test.expectedConfig, config) {
 				t.Errorf("expected config %v got config %v", test.expectedConfig, config)
 			}
 		})
@@ -205,7 +216,7 @@ services:
 		t.Fatalf("unexpected error %v", err)
 	}
 
-	if !cmp.Equal(expectedConfig, config) {
+	if !reflect.DeepEqual(expectedConfig, config) {
 		t.Errorf("expected config %v got config %v", expectedConfig, config)
 	}
 }
@@ -235,6 +246,23 @@ func TestConfigServiceList(t *testing.T) {
 			},
 			nil,
 		},
+		"with middleware": {
+			Config{
+				serviceMap{
+					"a": {
+						Host:     "a",
+						Redirect: "b",
+						Middlewares: &middlewareData{
+							IPAllow: middlewares.NewIPAllow(nil),
+						},
+					},
+				},
+			},
+			services.List{
+				services.NewRedirect("a", []middlewares.Middleware{middlewares.NewIPAllow(nil)}, "b"),
+			},
+			nil,
+		},
 	}
 
 	for name, test := range tests {
@@ -250,14 +278,17 @@ func TestConfigServiceList(t *testing.T) {
 					expectedService := test.expected[i]
 					expectedRemote, expectedErr := expectedService.Remote()
 
-					var (
-						hostEquals   = service.Host() == expectedService.Host()
-						remoteEquals = remote.String() == expectedRemote.String()
-						errEquals    = err == expectedErr
-					)
-
-					if !hostEquals || !remoteEquals || !errEquals {
-						t.Errorf("expected services %v got services %v", test.expected, services)
+					if service.Host() != expectedService.Host() {
+						t.Errorf("expected host %s got host %s", expectedService.Host(), service.Host())
+					}
+					if remote.String() != expectedRemote.String() {
+						t.Errorf("expected remote %s got remote %s", expectedRemote.String(), remote.String())
+					}
+					if !reflect.DeepEqual(service.Middlewares(), expectedService.Middlewares()) {
+						t.Errorf("expected middlewares %v got middlewares %v", expectedService.Middlewares(), service.Middlewares())
+					}
+					if err != expectedErr {
+						t.Errorf("expected error %v got error %v", expectedErr, err)
 					}
 				}
 			} else {
