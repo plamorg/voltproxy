@@ -184,9 +184,8 @@ services:
     redirect: https://invalid.example.com
     middlewares:
       ipallow:
-        allowedips:
-          - 127.0.0.1
-          - 192.168.1.7
+        - 127.0.0.1
+        - 192.168.1.7
     `)
 
 	expectedConfig := &Config{

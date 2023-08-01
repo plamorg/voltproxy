@@ -17,6 +17,11 @@ services:
   service1:
     host: example.com
     redirect: https://example.com
+    middlewares:
+      ipallow:
+        - 127.0.0.1
+        - 10.9.0.0/24
+        - 192.168.1.7
   service2:
     host: service2.com
     tls: true
@@ -31,6 +36,7 @@ services:
 - For services that redirect to a remote URL, provide the `redirect` field.
 - For services running in Docker containers, provide the `container` field.
   The `container` field should include the name, network, and port of the container.
+- Middlewares can optionally be attached to any service.
 
 ## 🌟 Future Improvements
 
