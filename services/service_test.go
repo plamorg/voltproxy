@@ -2,7 +2,9 @@ package services
 
 import (
 	"errors"
+	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"testing"
 )
 
@@ -19,7 +21,7 @@ func TestFindServiceWithHostFailure(t *testing.T) {
 		},
 		"not found": {
 			list: List{
-				NewRedirect("sub.example.com", nil, "https://example.com"),
+				NewRedirect(Config{Host: "sub.example.com"}, "https://example.com"),
 			},
 			host:          "example.com",
 			expectedError: ErrNoServiceFound,
@@ -37,12 +39,12 @@ func TestFindServiceWithHostFailure(t *testing.T) {
 }
 
 func TestFindServiceWithHostSuccess(t *testing.T) {
-	expectedService := NewRedirect("example.com", nil, "https://example.com")
+	expectedService := NewRedirect(Config{Host: "example.com"}, "https://example.com")
 
 	list := List{
-		NewRedirect("foo.example.com", nil, "https://example.com"),
+		NewRedirect(Config{Host: "foo.example.com"}, "https://example.com"),
 		expectedService,
-		NewRedirect("bar.example.com", nil, "https://foo.example.com"),
+		NewRedirect(Config{Host: "bar.example.com"}, "https://foo.example.com"),
 	}
 
 	service, err := list.findServiceWithHost("example.com")
@@ -50,8 +52,8 @@ func TestFindServiceWithHostSuccess(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if (*service).Host() != expectedService.Host() {
-		t.Errorf("expected %s got %s", expectedService.Host(), (*service).Host())
+	if !reflect.DeepEqual(*service, expectedService) {
+		t.Errorf("expected %v got %v", expectedService, *service)
 	}
 }
 
@@ -60,14 +62,54 @@ func TestProxySuccess(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	list := List{
-		NewRedirect("sub.example.com", nil, "https://bar.example.com"),
-		NewRedirect("example.com", nil, "https://foo.example.com"),
+		NewRedirect(Config{Host: "sub.example.com"}, "https://bar.example.com"),
+		NewRedirect(Config{Host: "example.com"}, "https://foo.example.com"),
 	}
 
 	expectedHost := "foo.example.com"
 
-	list.Proxy(r, w)
+	list.Proxy(false).ServeHTTP(w, r)
 	if r.Host != expectedHost {
 		t.Errorf("expected host %s got host %s", expectedHost, r.Host)
+	}
+}
+
+func TestProxyRedirectToTLS(t *testing.T) {
+	r := httptest.NewRequest("GET", "http://example.com", nil)
+	w := httptest.NewRecorder()
+
+	list := List{
+		NewRedirect(Config{Host: "example.com", TLS: true}, "https://bar.example.com"),
+	}
+
+	// Access a TLS service through HTTP and expect to get redirected to HTTPS.
+	list.Proxy(false).ServeHTTP(w, r)
+
+	location, err := w.Result().Location()
+	if err != nil {
+		t.Fatalf("expected no error, got %v", err)
+	}
+
+	expectedLocation := "https://example.comhttp://example.com"
+	if location.String() != expectedLocation {
+		t.Errorf("expected location %s got location %s", expectedLocation, location.String())
+	}
+}
+
+func TestProxyTLSNotFound(t *testing.T) {
+	r := httptest.NewRequest("GET", "https://example.com", nil)
+	w := httptest.NewRecorder()
+
+	list := List{
+		NewRedirect(Config{Host: "example.com", TLS: false}, "https://baz.example.com"),
+	}
+
+	// Try access a service through HTTPS when it is specified as non TLS.
+	list.Proxy(true).ServeHTTP(w, r)
+
+	expectedCode := http.StatusNotFound
+
+	if w.Code != expectedCode {
+		t.Errorf("expected code %d got code %d", expectedCode, w.Code)
 	}
 }

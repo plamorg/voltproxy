@@ -10,7 +10,6 @@ import (
 
 	"github.com/plamorg/voltproxy/config"
 	"github.com/plamorg/voltproxy/dockerapi"
-	"github.com/plamorg/voltproxy/services"
 )
 
 func contains(slice []string, item string) bool {
@@ -20,26 +19,6 @@ func contains(slice []string, item string) bool {
 		}
 	}
 	return false
-}
-
-func reverseProxy(list services.List, tlsHosts []string) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if contains(tlsHosts, r.Host) {
-			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
-		} else {
-			list.Proxy(r, w)
-		}
-	})
-}
-
-func reverseProxyTLS(list services.List, tlsHosts []string) http.HandlerFunc {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if contains(tlsHosts, r.Host) {
-			list.Proxy(r, w)
-		} else {
-			w.WriteHeader(http.StatusNotFound)
-		}
-	})
 }
 
 func main() {
@@ -63,25 +42,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	tlsHosts := conf.TLSHosts()
-
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist(tlsHosts...),
+		HostPolicy: autocert.HostWhitelist(conf.TLSHosts()...),
 		Cache:      autocert.DirCache("_certs"),
 	}
 
-	handler := reverseProxy(services, tlsHosts)
+	log.Printf("Listening...")
 
-	tlsHandler := reverseProxyTLS(services, tlsHosts)
+	handler := services.Proxy(false)
+	go http.ListenAndServe(":http", certManager.HTTPHandler(handler))
 
+	tlsHandler := services.Proxy(true)
 	tlsServer := &http.Server{
 		Addr:      ":https",
 		TLSConfig: certManager.TLSConfig(),
 		Handler:   tlsHandler,
 	}
-
-	log.Printf("Listening...")
-	go http.ListenAndServe(":http", certManager.HTTPHandler(handler))
 	tlsServer.ListenAndServeTLS("", "")
 }

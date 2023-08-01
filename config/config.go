@@ -67,11 +67,16 @@ func (c *Config) ServiceList(adapter dockerapi.Adapter) (services.List, error) {
 		if service.Middlewares != nil {
 			middlewareList = service.Middlewares.List()
 		}
+		config := services.Config{
+			Host:        service.Host,
+			TLS:         service.TLS,
+			Middlewares: middlewareList,
+		}
 		if service.Container != nil {
-			container := services.NewContainer(adapter, service.Host, middlewareList, *service.Container)
+			container := services.NewContainer(adapter, config, *service.Container)
 			s = append(s, container)
 		} else if service.Redirect != "" {
-			s = append(s, services.NewRedirect(service.Host, middlewareList, service.Redirect))
+			s = append(s, services.NewRedirect(config, service.Redirect))
 		}
 	}
 	return s, nil

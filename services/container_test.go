@@ -24,7 +24,7 @@ func TestContainerRemoteSuccess(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(adapter, "a", nil, ContainerInfo{
+	container := NewContainer(adapter, Config{Host: "host"}, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    1234,
@@ -65,7 +65,7 @@ func TestContainerRemoteNotInNetwork(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(adapter, "a", nil, ContainerInfo{
+	container := NewContainer(adapter, Config{Host: "host"}, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    25565,
@@ -104,7 +104,7 @@ func TestContainerRemoteNoMatchingContainer(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(adapter, "a", nil, ContainerInfo{
+	container := NewContainer(adapter, Config{Host: "host"}, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    4321,

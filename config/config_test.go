@@ -242,7 +242,7 @@ func TestConfigServiceList(t *testing.T) {
 				},
 			},
 			services.List{
-				services.NewRedirect("a", nil, "b"),
+				services.NewRedirect(services.Config{Host: "a"}, "b"),
 			},
 			nil,
 		},
@@ -259,7 +259,10 @@ func TestConfigServiceList(t *testing.T) {
 				},
 			},
 			services.List{
-				services.NewRedirect("a", []middlewares.Middleware{middlewares.NewIPAllow(nil)}, "b"),
+				services.NewRedirect(services.Config{
+					Host:        "a",
+					Middlewares: []middlewares.Middleware{middlewares.NewIPAllow(nil)},
+				}, "b"),
 			},
 			nil,
 		},
@@ -278,14 +281,11 @@ func TestConfigServiceList(t *testing.T) {
 					expectedService := test.expected[i]
 					expectedRemote, expectedErr := expectedService.Remote()
 
-					if service.Host() != expectedService.Host() {
-						t.Errorf("expected host %s got host %s", expectedService.Host(), service.Host())
+					if !reflect.DeepEqual(service.Config(), expectedService.Config()) {
+						t.Errorf("expected service %v got service %v", expectedService.Config(), service.Config())
 					}
 					if remote.String() != expectedRemote.String() {
 						t.Errorf("expected remote %s got remote %s", expectedRemote.String(), remote.String())
-					}
-					if !reflect.DeepEqual(service.Middlewares(), expectedService.Middlewares()) {
-						t.Errorf("expected middlewares %v got middlewares %v", expectedService.Middlewares(), service.Middlewares())
 					}
 					if err != expectedErr {
 						t.Errorf("expected error %v got error %v", expectedErr, err)
@@ -328,7 +328,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	}
 
 	expectedServices := services.List{
-		services.NewContainer(adapter, "a", nil, services.ContainerInfo{
+		services.NewContainer(adapter, services.Config{Host: "a"}, services.ContainerInfo{
 			Name:    "b",
 			Network: "c",
 			Port:    1234,
