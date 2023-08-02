@@ -42,7 +42,9 @@ func main() {
 	log.Printf("Listening...")
 
 	handler := services.Handler()
-	go http.ListenAndServe(":http", certManager.HTTPHandler(handler))
+	go func() {
+		log.Fatal(http.ListenAndServe(":http", certManager.HTTPHandler(handler)))
+	}()
 
 	tlsHandler := services.TLSHandler()
 	tlsServer := &http.Server{
@@ -50,5 +52,5 @@ func main() {
 		TLSConfig: certManager.TLSConfig(),
 		Handler:   tlsHandler,
 	}
-	tlsServer.ListenAndServeTLS("", "")
+	log.Fatal(tlsServer.ListenAndServeTLS("", ""))
 }
