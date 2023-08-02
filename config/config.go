@@ -60,7 +60,7 @@ func Parse(data []byte) (*Config, error) {
 }
 
 // ServiceList returns a list of services from the config.
-func (c *Config) ServiceList(adapter dockerapi.Adapter) (services.List, error) {
+func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
 	var s services.List
 	for _, service := range c.Services {
 		var middlewareList []middlewares.Middleware
@@ -73,7 +73,7 @@ func (c *Config) ServiceList(adapter dockerapi.Adapter) (services.List, error) {
 			Middlewares: middlewareList,
 		}
 		if service.Container != nil {
-			container := services.NewContainer(adapter, config, *service.Container)
+			container := services.NewContainer(docker, config, *service.Container)
 			s = append(s, container)
 		} else if service.Redirect != "" {
 			s = append(s, services.NewRedirect(config, service.Redirect))

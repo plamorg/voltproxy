@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -114,5 +115,27 @@ func TestContainerRemoteNoMatchingContainer(t *testing.T) {
 
 	if !errors.Is(err, ErrNoMatchingContainer) {
 		t.Errorf("expected error %v, got %v", ErrContainerNotInNetwork, err)
+	}
+}
+
+var errBadAdapter = fmt.Errorf("bad adapter")
+
+type badAdapter struct{}
+
+func (badAdapter) ContainerList() ([]types.Container, error) {
+	return nil, errBadAdapter
+}
+
+func TestContainerRemoteBadAdapter(t *testing.T) {
+	container := NewContainer(badAdapter{}, Config{Host: "host"}, ContainerInfo{
+		Name:    "test",
+		Network: "net",
+		Port:    4321,
+	})
+
+	_, err := container.Remote()
+
+	if !errors.Is(err, errBadAdapter) {
+		t.Errorf("expected error %v, got %v", errBadAdapter, err)
 	}
 }

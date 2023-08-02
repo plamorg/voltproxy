@@ -12,15 +12,6 @@ import (
 	"github.com/plamorg/voltproxy/dockerapi"
 )
 
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
 func main() {
 	confBytes, err := os.ReadFile("./config.yml")
 	if err != nil {
@@ -32,12 +23,12 @@ func main() {
 		log.Fatal(err)
 	}
 
-	cli, err := dockerapi.NewClient()
+	docker, err := dockerapi.NewClient()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	services, err := conf.ServiceList(cli)
+	services, err := conf.ServiceList(docker)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -50,10 +41,10 @@ func main() {
 
 	log.Printf("Listening...")
 
-	handler := services.Proxy(false)
+	handler := services.Handler()
 	go http.ListenAndServe(":http", certManager.HTTPHandler(handler))
 
-	tlsHandler := services.Proxy(true)
+	tlsHandler := services.TLSHandler()
 	tlsServer := &http.Server{
 		Addr:      ":https",
 		TLSConfig: certManager.TLSConfig(),

@@ -2,7 +2,6 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
@@ -11,8 +10,8 @@ import (
 	"github.com/plamorg/voltproxy/middlewares"
 )
 
-// ErrNoServiceFound is returned when no service with the host is found.
-var ErrNoServiceFound = fmt.Errorf("no service with host")
+// errNoServiceFound is returned when no service with the host is found.
+var errNoServiceFound = fmt.Errorf("no service with host")
 
 // Config describes the user defined configuration for a service.
 type Config struct {
@@ -35,11 +34,20 @@ func (l *List) findServiceWithHost(host string) (*service, error) {
 			return &service, nil
 		}
 	}
-	return nil, fmt.Errorf("%w: %s", ErrNoServiceFound, host)
+	return nil, fmt.Errorf("%w: %s", errNoServiceFound, host)
 }
 
-// Proxy creates a proxy handler based on whether TLS is enabled or not.
-func (l *List) Proxy(tls bool) http.Handler {
+// Handler returns a http.Handler that proxies requests to services, redirecting to TLS if applicable.
+func (l *List) Handler() http.Handler {
+	return l.handler(false)
+}
+
+// TLSHandler returns a http.Handler that proxies requests to services with TLS enabled.
+func (l *List) TLSHandler() http.Handler {
+	return l.handler(true)
+}
+
+func (l *List) handler(tls bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		service, err := l.findServiceWithHost(r.Host)
 		if err != nil {
@@ -57,10 +65,7 @@ func (l *List) Proxy(tls bool) http.Handler {
 		}
 
 		remote, err := (*service).Remote()
-		if errors.Is(err, ErrNoServiceFound) {
-			w.WriteHeader(http.StatusNotFound)
-			return
-		} else if err != nil {
+		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
