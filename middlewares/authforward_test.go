@@ -1,8 +1,10 @@
 package middlewares
 
 import (
+	"crypto/tls"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -36,7 +38,9 @@ func TestAuthForwardHandle(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			a := NewAuthForward(test.authServer.URL, nil, nil)
+			a := AuthForward{
+				Address: test.authServer.URL,
+			}
 			handler := a.Handle(teapotHandler)
 
 			w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
@@ -61,7 +65,10 @@ func TestAuthForwardHandleRequestHeaders(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	a := NewAuthForward(verifyingAuthServer.URL, []string{"test-header"}, nil)
+	a := AuthForward{
+		Address:        verifyingAuthServer.URL,
+		RequestHeaders: []string{"test-header"},
+	}
 
 	handler := a.Handle(teapotHandler)
 
@@ -84,7 +91,9 @@ func TestAuthForwardHandleEmptyRequestHeaders(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	a := NewAuthForward(verifyingAuthServer.URL, nil, nil)
+	a := AuthForward{
+		Address: verifyingAuthServer.URL,
+	}
 
 	handler := a.Handle(teapotHandler)
 
@@ -104,7 +113,10 @@ func TestAuthForwardHandleResponseHeaders(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	a := NewAuthForward(verifyingAuthServer.URL, nil, []string{"test-header"})
+	a := AuthForward{
+		Address:         verifyingAuthServer.URL,
+		ResponseHeaders: []string{"test-header"},
+	}
 
 	handler := a.Handle(teapotHandler)
 
@@ -121,5 +133,153 @@ func TestAuthForwardHandleResponseHeaders(t *testing.T) {
 
 	if w.Code != http.StatusTeapot {
 		t.Errorf("expected %d, got %d", http.StatusTeapot, w.Code)
+	}
+}
+
+func TestAuthForwardHandleInvalidAddress(t *testing.T) {
+	a := AuthForward{
+		Address: ":invalid",
+	}
+
+	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
+	a.Handle(teapotHandler).ServeHTTP(w, r)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
+func TestAuthForwardHandleForwardXForwardedFalse(t *testing.T) {
+	verifyingAuthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for header, values := range r.Header {
+			if strings.HasPrefix(header, "X-Forwarded") {
+				t.Errorf("header %s was unexpectedly forwarded with values %+v", header, values)
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	a := AuthForward{
+		Address:           verifyingAuthServer.URL,
+		ForwardXForwarded: false,
+	}
+
+	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
+	r.Header.Set(xForwardedFor, "foo xForwardedFor")
+	r.Header.Set(xForwardedMethod, "bar xForwardedMethod")
+	r.Header.Set(xForwardedProto, "baz xForwardedProto")
+	r.Header.Set(xForwardedHost, "foobar xForwardedHost")
+	r.Header.Set(xForwardedURI, "foobarbaz xForwardedURI")
+	a.Handle(teapotHandler).ServeHTTP(w, r)
+}
+
+func TestAuthForwardHandleForwardXForwardedTrue(t *testing.T) {
+	verifyingAuthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tests := []struct {
+			header   string
+			expected string
+		}{
+			{xForwardedFor, "1.1.1.1"},
+			{xForwardedMethod, "POST"},
+			{xForwardedProto, "https"},
+			{xForwardedHost, "example.com"},
+			{xForwardedURI, "/foobarbaz"},
+		}
+
+		for _, test := range tests {
+			if r.Header.Get(test.header) != test.expected {
+				t.Errorf("expected %s to be forwarded as %s, got %s", test.header, test.expected, r.Header.Get(test.header))
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	a := AuthForward{
+		Address:           verifyingAuthServer.URL,
+		ForwardXForwarded: true,
+	}
+
+	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
+
+	// Manually set X-Forwarded headers should be overwritten.
+	r.Header.Set(xForwardedFor, "nonsense")
+	r.Header.Set(xForwardedMethod, "nonsense")
+	r.Header.Set(xForwardedProto, "nonsense")
+	r.Header.Set(xForwardedHost, "nonsense")
+	r.Header.Set(xForwardedURI, "nonsense")
+
+	r.RemoteAddr = "1.1.1.1:1234"
+	r.Method = "POST"
+	r.TLS = &tls.ConnectionState{}
+	r.Host = "example.com"
+	r.RequestURI = "/foobarbaz"
+
+	a.Handle(teapotHandler).ServeHTTP(w, r)
+}
+
+func TestAuthForwardHandleForwardXForwardedHTTP(t *testing.T) {
+	verifyingAuthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proto := r.Header.Get(xForwardedProto)
+		if proto != "http" {
+			t.Errorf("expected %s to be forwarded as %s, got %s", xForwardedProto, "http", proto)
+		}
+	}))
+
+	a := AuthForward{
+		Address:           verifyingAuthServer.URL,
+		ForwardXForwarded: true,
+	}
+
+	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
+	r.TLS = nil
+
+	a.Handle(teapotHandler).ServeHTTP(w, r)
+}
+
+func TestAuthForwardHandleRedirectingAuthServer(t *testing.T) {
+	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	authRedirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Custom-Header", "custom-value")
+		http.Redirect(w, r, authServer.URL, http.StatusMovedPermanently)
+	}))
+
+	a := AuthForward{
+		Address: authRedirectServer.URL,
+	}
+
+	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
+	a.Handle(teapotHandler).ServeHTTP(w, r)
+
+	if w.Code != http.StatusMovedPermanently {
+		t.Errorf("expected %d, got %d", http.StatusMovedPermanently, w.Code)
+	}
+
+	location := w.Header().Get("Location")
+	if location != authServer.URL {
+		t.Errorf("expected Location header to be %s, got %s", authServer.URL, location)
+	}
+
+	if w.Header().Get("Custom-Header") != "custom-value" {
+		t.Errorf("expected Custom-Header to be forwarded")
+	}
+}
+
+func TestAuthForwardHandleBadAuthServer(t *testing.T) {
+	badAuthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Location", "invalid URL :(")
+		w.WriteHeader(http.StatusMovedPermanently)
+	}))
+
+	a := AuthForward{
+		Address: badAuthServer.URL,
+	}
+
+	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
+	a.Handle(teapotHandler).ServeHTTP(w, r)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected %d, got %d", http.StatusInternalServerError, w.Code)
 	}
 }

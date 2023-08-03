@@ -209,8 +209,12 @@ services:
 				Host:     "service1.example.com",
 				Redirect: "https://invalid.example.com",
 				Middlewares: &middlewareData{
-					IPAllow:     middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
-					AuthForward: middlewares.NewAuthForward("https://auth.example.com", []string{}, []string{"X-Auth-Response-Header"}),
+					IPAllow: middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
+					AuthForward: &middlewares.AuthForward{
+						Address:         "https://auth.example.com",
+						RequestHeaders:  []string{},
+						ResponseHeaders: []string{"X-Auth-Response-Header"},
+					},
 				},
 			},
 		},
@@ -429,12 +433,20 @@ func TestMiddlewareDataList(t *testing.T) {
 		},
 		"multiple middlewares": {
 			middlewareData{
-				IPAllow:     middlewares.NewIPAllow([]string{"a"}),
-				AuthForward: middlewares.NewAuthForward("auth server", []string{"1", "2"}, []string{"3"}),
+				IPAllow: middlewares.NewIPAllow([]string{"a"}),
+				AuthForward: &middlewares.AuthForward{
+					Address:         "auth server",
+					RequestHeaders:  []string{"1", "2"},
+					ResponseHeaders: []string{"3"},
+				},
 			},
 			[]middlewares.Middleware{
 				middlewares.NewIPAllow([]string{"a"}),
-				middlewares.NewAuthForward("auth server", []string{"1", "2"}, []string{"3"}),
+				&middlewares.AuthForward{
+					Address:         "auth server",
+					RequestHeaders:  []string{"1", "2"},
+					ResponseHeaders: []string{"3"},
+				},
 			},
 		},
 	}

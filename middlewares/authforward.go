@@ -1,7 +1,16 @@
 package middlewares
 
 import (
+	"net"
 	"net/http"
+)
+
+var (
+	xForwardedFor    = "X-Forwarded-For"
+	xForwardedMethod = "X-Forwarded-Method"
+	xForwardedProto  = "X-Forwarded-Proto"
+	xForwardedHost   = "X-Forwarded-Host"
+	xForwardedURI    = "X-Forwarded-Uri"
 )
 
 // AuthForward is a middleware that forwards the request to an authentication server and
@@ -15,15 +24,8 @@ type AuthForward struct {
 
 	// The headers to forward from the authentication server to the service.
 	ResponseHeaders []string
-}
 
-// NewAuthForward creates a new AuthForward middleware.
-func NewAuthForward(address string, requestHeaders, responseHeaders []string) *AuthForward {
-	return &AuthForward{
-		Address:         address,
-		RequestHeaders:  requestHeaders,
-		ResponseHeaders: responseHeaders,
-	}
+	ForwardXForwarded bool
 }
 
 // Handle communicates with the authentication server and proxies to the service if the
@@ -39,8 +41,8 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 
 		if a.RequestHeaders == nil {
 			// Forward all request headers if none are specified.
-			for key, values := range r.Header {
-				authReq.Header[key] = append(authReq.Header[key], values...)
+			for key := range r.Header {
+				authReq.Header.Set(key, r.Header.Get(key))
 			}
 		} else {
 			for _, header := range a.RequestHeaders {
@@ -48,21 +50,55 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 			}
 		}
 
-		resp, err := http.DefaultClient.Do(authReq)
+		if a.ForwardXForwarded {
+			host, _, err := net.SplitHostPort(r.RemoteAddr)
+			if err == nil {
+				authReq.Header.Set(xForwardedFor, host)
+			}
+			authReq.Header.Set(xForwardedMethod, r.Method)
+			if r.TLS != nil {
+				authReq.Header.Set(xForwardedProto, "https")
+			} else {
+				authReq.Header.Set(xForwardedProto, "http")
+			}
+			authReq.Header.Set(xForwardedHost, r.Host)
+			authReq.Header.Set(xForwardedURI, r.RequestURI)
+		} else {
+			for _, header := range []string{xForwardedFor, xForwardedMethod, xForwardedProto, xForwardedHost, xForwardedURI} {
+				authReq.Header.Del(header)
+			}
+		}
+
+		noRedirectClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		res, err := noRedirectClient.Do(authReq)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
+		defer res.Body.Close()
 
-		authFailed := resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices
+		authFailed := res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices
+
+		// If initial authentication has failed, try redirect to the next location given
+		// by the authentication server.
 		if authFailed {
-			w.WriteHeader(resp.StatusCode)
+			// Ensure that the original headers sent to the authentication server are once
+			// again sent to the redirect location.
+			for header := range res.Header {
+				w.Header().Set(header, res.Header.Get(header))
+			}
+
+			w.WriteHeader(res.StatusCode)
 			return
 		}
 
 		for _, header := range a.ResponseHeaders {
-			canonicalHeader := http.CanonicalHeaderKey(header)
-			r.Header[canonicalHeader] = append(r.Header[canonicalHeader], resp.Header[canonicalHeader]...)
+			r.Header.Set(header, res.Header.Get(header))
 		}
 
 		next.ServeHTTP(w, r)

@@ -70,13 +70,15 @@ func (l *List) handler(tls bool) http.Handler {
 			return
 		}
 
-		r.Host = remote.Host
-		proxy := httputil.NewSingleHostReverseProxy(remote)
-		var handler http.Handler = proxy
+		var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			proxy := httputil.NewSingleHostReverseProxy(remote)
+			r.Host = remote.Host
+			proxy.ServeHTTP(w, r)
+		})
 
 		middlewares := (*service).Config().Middlewares
 		for _, middleware := range middlewares {
-			handler = middleware.Handle(proxy)
+			handler = middleware.Handle(handler)
 		}
 
 		handler.ServeHTTP(w, r)

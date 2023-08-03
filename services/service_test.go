@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -58,15 +59,18 @@ func TestFindServiceWithHostSuccess(t *testing.T) {
 }
 
 func TestHandlerSuccess(t *testing.T) {
+	okServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
 	r := httptest.NewRequest("GET", "http://example.com", nil)
 	w := httptest.NewRecorder()
 
 	list := List{
 		NewRedirect(Config{Host: "sub.example.com"}, "https://bar.example.com"),
-		NewRedirect(Config{Host: "example.com"}, "https://foo.example.com"),
+		NewRedirect(Config{Host: "example.com"}, okServer.URL),
 	}
 
-	expectedHost := "foo.example.com"
+	expectedHost := strings.Split(okServer.URL, "://")[1]
 
 	list.Handler().ServeHTTP(w, r)
 	if r.Host != expectedHost {
