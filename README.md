@@ -14,21 +14,34 @@ The configuration file should have the following structure:
 
 ```yaml
 services:
-  service1:
+  foo:
     host: example.com
-    redirect: https://example.com
+    redirect: "https://example.com"
     middlewares:
       ipallow:
         - 127.0.0.1
-        - 10.9.0.0/24
+        - 10.9.0.0/24 # CIDR notation is supported!
         - 192.168.1.7
-  service2:
-    host: service2.com
+  bar:
+    host: bar.example.com
     tls: true
     container:
-      name: container1
-      network: network1
+      name: "/container1"
+      network: "network1"
       port: 8080
+  baz:
+    host: baz.example.com
+    tls: true
+    redirect: protected.example.com
+    # Multiple middlewares can be added to a single service.
+    middlewares:
+      ipallow:
+        - 10.9.0.1
+      authforward:
+        address: "https://auth.example.com"
+        requestheaders: []
+        responseheaders:
+          ["Remote-User", "Remote-Groups", "Remote-Name", "Remote-Email"]
 ```
 
 - Each service should have a unique name.
@@ -40,5 +53,5 @@ services:
 
 ## 🌟 Future Improvements
 
-- Support for custom middleware.
+- More middlewares.
 - Enhanced logging and monitoring capabilities.

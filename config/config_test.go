@@ -197,6 +197,10 @@ services:
       ipallow:
         - 127.0.0.1
         - 192.168.1.7
+      authforward:
+        address: https://auth.example.com
+        requestheaders: []
+        responseheaders: ["X-Auth-Response-Header"]
     `)
 
 	expectedConfig := &Config{
@@ -205,7 +209,8 @@ services:
 				Host:     "service1.example.com",
 				Redirect: "https://invalid.example.com",
 				Middlewares: &middlewareData{
-					IPAllow: middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
+					IPAllow:     middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
+					AuthForward: middlewares.NewAuthForward("https://auth.example.com", []string{}, []string{"X-Auth-Response-Header"}),
 				},
 			},
 		},
@@ -422,7 +427,16 @@ func TestMiddlewareDataList(t *testing.T) {
 				middlewares.NewIPAllow([]string{"a"}),
 			},
 		},
-		// TODO: add tests for multiple middlewares.
+		"multiple middlewares": {
+			middlewareData{
+				IPAllow:     middlewares.NewIPAllow([]string{"a"}),
+				AuthForward: middlewares.NewAuthForward("auth server", []string{"1", "2"}, []string{"3"}),
+			},
+			[]middlewares.Middleware{
+				middlewares.NewIPAllow([]string{"a"}),
+				middlewares.NewAuthForward("auth server", []string{"1", "2"}, []string{"3"}),
+			},
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {

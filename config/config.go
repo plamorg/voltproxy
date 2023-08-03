@@ -15,7 +15,8 @@ import (
 var errMustHaveOneService = fmt.Errorf("must have exactly one service")
 
 type middlewareData struct {
-	IPAllow *middlewares.IPAllow
+	IPAllow     *middlewares.IPAllow
+	AuthForward *middlewares.AuthForward
 }
 
 type serviceMap map[string]struct {

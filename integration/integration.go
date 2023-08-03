@@ -55,30 +55,38 @@ func NewInstance(t *testing.T, confData []byte) *Instance {
 	}
 }
 
-// Request sends a request to the reverse proxy with the given host.
-func (i *Instance) Request(host string) *http.Response {
-	return i.request(host, false)
+// URL returns the URL of the reverse proxy instance.
+func (i *Instance) URL() string {
+	return i.url
 }
 
-// RequestTLS sends a request to the reverse proxy with the given host, using TLS.
-func (i *Instance) RequestTLS(host string) *http.Response {
-	return i.request(host, true)
+// TLSURL returns the TLS URL of the reverse proxy instance.
+func (i *Instance) TLSURL() string {
+	return i.tlsURL
 }
 
-func (i *Instance) request(host string, tls bool) *http.Response {
-	var requestURL string
-	if tls {
-		requestURL = i.tlsURL
-	} else {
-		requestURL = i.url
-	}
-
-	req, err := http.NewRequest("GET", requestURL, nil)
+// RequestHost sends a request to the reverse proxy with the given host.
+func (i *Instance) RequestHost(host string) *http.Response {
+	req, err := http.NewRequest("GET", i.url, nil)
 	if err != nil {
 		i.t.Fatal(err)
 	}
 	req.Host = host
+	return i.Request(req)
+}
 
+// RequestHostTLS sends a request to the reverse proxy with the given host, using TLS.
+func (i *Instance) RequestHostTLS(host string) *http.Response {
+	req, err := http.NewRequest("GET", i.tlsURL, nil)
+	if err != nil {
+		i.t.Fatal(err)
+	}
+	req.Host = host
+	return i.Request(req)
+}
+
+// Request sends a request to the reverse proxy.
+func (i *Instance) Request(req *http.Request) *http.Response {
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		i.t.Fatal(err)
