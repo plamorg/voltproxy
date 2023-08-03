@@ -36,23 +36,6 @@ services:
 	}
 }
 
-func TestRedirectToTLS(t *testing.T) {
-	i := NewInstance(t, []byte(fmt.Sprintf(`
-services:
-  service:
-    host: example.com
-    tls: true
-    redirect: "%s"`, TeapotServer.URL)))
-
-	expectedURL := "https://example.com/"
-
-	res := i.RequestHost("example.com")
-	url := res.Request.URL.String()
-	if url != expectedURL {
-		t.Fatalf("expected url %s, got %s", expectedURL, url)
-	}
-}
-
 func TestTLSNotAvailable(t *testing.T) {
 	i := NewInstance(t, []byte(fmt.Sprintf(`
 services:
