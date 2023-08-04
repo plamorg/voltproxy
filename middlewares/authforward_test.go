@@ -241,7 +241,7 @@ func TestAuthForwardHandleRedirectingAuthServer(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 	authRedirectServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Custom-Header", "custom-value")
+		w.Header().Set("Do-Not-Forward", "foo")
 		http.Redirect(w, r, authServer.URL, http.StatusMovedPermanently)
 	}))
 
@@ -261,8 +261,8 @@ func TestAuthForwardHandleRedirectingAuthServer(t *testing.T) {
 		t.Errorf("expected Location header to be %s, got %s", authServer.URL, location)
 	}
 
-	if w.Header().Get("Custom-Header") != "custom-value" {
-		t.Errorf("expected Custom-Header to be forwarded")
+	if w.Header().Get("Do-Not-Forward") != "" {
+		t.Errorf("header from auth redirect server was unexpectedly forwarded")
 	}
 }
 

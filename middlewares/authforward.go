@@ -5,13 +5,21 @@ import (
 	"net/http"
 )
 
-var (
+const (
 	xForwardedFor    = "X-Forwarded-For"
 	xForwardedMethod = "X-Forwarded-Method"
 	xForwardedProto  = "X-Forwarded-Proto"
 	xForwardedHost   = "X-Forwarded-Host"
 	xForwardedURI    = "X-Forwarded-Uri"
 )
+
+var xForwardedHeaders = []string{
+	xForwardedFor,
+	xForwardedMethod,
+	xForwardedProto,
+	xForwardedHost,
+	xForwardedURI,
+}
 
 // AuthForward is a middleware that forwards the request to an authentication server and
 // proxies to the service if the authentication is successful.
@@ -64,7 +72,7 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 			authReq.Header.Set(xForwardedHost, r.Host)
 			authReq.Header.Set(xForwardedURI, r.RequestURI)
 		} else {
-			for _, header := range []string{xForwardedFor, xForwardedMethod, xForwardedProto, xForwardedHost, xForwardedURI} {
+			for _, header := range xForwardedHeaders {
 				authReq.Header.Del(header)
 			}
 		}
@@ -87,13 +95,11 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 		// If initial authentication has failed, try redirect to the next location given
 		// by the authentication server.
 		if authFailed {
-			// Ensure that the original headers sent to the authentication server are once
-			// again sent to the redirect location.
-			for header := range res.Header {
-				w.Header().Set(header, res.Header.Get(header))
+			if location, err := res.Location(); err == nil && location.String() != "" {
+				http.Redirect(w, r, location.String(), res.StatusCode)
+			} else {
+				w.WriteHeader(res.StatusCode)
 			}
-
-			w.WriteHeader(res.StatusCode)
 			return
 		}
 
