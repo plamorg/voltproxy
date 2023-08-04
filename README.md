@@ -10,7 +10,7 @@ The configuration file should follow a specific format.
 
 ## 🔧 Configuration Format
 
-The configuration file should have the following structure:
+Example configuration file:
 
 ```yaml
 services:
@@ -39,6 +39,7 @@ services:
         - 10.9.0.1
       authforward:
         address: "https://auth.example.com"
+        xforwarded: true
         requestheaders: []
         responseheaders:
           ["Remote-User", "Remote-Groups", "Remote-Name", "Remote-Email"]

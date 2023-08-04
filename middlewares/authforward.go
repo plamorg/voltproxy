@@ -24,6 +24,7 @@ var xForwardedHeaders = []string{
 // AuthForward is a middleware that forwards the request to an authentication server and
 // proxies to the service if the authentication is successful.
 type AuthForward struct {
+	// The address of the authentication server.
 	Address string
 
 	// The headers to forward from the request to the authentication server.
@@ -33,7 +34,8 @@ type AuthForward struct {
 	// The headers to forward from the authentication server to the service.
 	ResponseHeaders []string
 
-	ForwardXForwarded bool
+	// Specifies whether to forward X-Forwarded-* headers to the authentication server.
+	XForwarded bool
 }
 
 // Handle communicates with the authentication server and proxies to the service if the
@@ -58,7 +60,7 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 			}
 		}
 
-		if a.ForwardXForwarded {
+		if a.XForwarded {
 			host, _, err := net.SplitHostPort(r.RemoteAddr)
 			if err == nil {
 				authReq.Header.Set(xForwardedFor, host)

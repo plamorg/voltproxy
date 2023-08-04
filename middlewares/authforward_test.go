@@ -149,7 +149,7 @@ func TestAuthForwardHandleInvalidAddress(t *testing.T) {
 	}
 }
 
-func TestAuthForwardHandleForwardXForwardedFalse(t *testing.T) {
+func TestAuthForwardHandleXForwardedFalse(t *testing.T) {
 	verifyingAuthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for header, values := range r.Header {
 			if strings.HasPrefix(header, "X-Forwarded") {
@@ -160,8 +160,8 @@ func TestAuthForwardHandleForwardXForwardedFalse(t *testing.T) {
 	}))
 
 	a := AuthForward{
-		Address:           verifyingAuthServer.URL,
-		ForwardXForwarded: false,
+		Address:    verifyingAuthServer.URL,
+		XForwarded: false,
 	}
 
 	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
@@ -173,7 +173,7 @@ func TestAuthForwardHandleForwardXForwardedFalse(t *testing.T) {
 	a.Handle(teapotHandler).ServeHTTP(w, r)
 }
 
-func TestAuthForwardHandleForwardXForwardedTrue(t *testing.T) {
+func TestAuthForwardHandleXForwardedTrue(t *testing.T) {
 	verifyingAuthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tests := []struct {
 			header   string
@@ -195,8 +195,8 @@ func TestAuthForwardHandleForwardXForwardedTrue(t *testing.T) {
 	}))
 
 	a := AuthForward{
-		Address:           verifyingAuthServer.URL,
-		ForwardXForwarded: true,
+		Address:    verifyingAuthServer.URL,
+		XForwarded: true,
 	}
 
 	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
@@ -217,7 +217,7 @@ func TestAuthForwardHandleForwardXForwardedTrue(t *testing.T) {
 	a.Handle(teapotHandler).ServeHTTP(w, r)
 }
 
-func TestAuthForwardHandleForwardXForwardedHTTP(t *testing.T) {
+func TestAuthForwardHandleXForwardedProto(t *testing.T) {
 	verifyingAuthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proto := r.Header.Get(xForwardedProto)
 		if proto != "http" {
@@ -226,8 +226,8 @@ func TestAuthForwardHandleForwardXForwardedHTTP(t *testing.T) {
 	}))
 
 	a := AuthForward{
-		Address:           verifyingAuthServer.URL,
-		ForwardXForwarded: true,
+		Address:    verifyingAuthServer.URL,
+		XForwarded: true,
 	}
 
 	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)

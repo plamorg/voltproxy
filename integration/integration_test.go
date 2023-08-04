@@ -93,7 +93,7 @@ services:
 	}
 }
 
-func TestNoContainerFound(t *testing.T) {
+func TestContainerNotFound(t *testing.T) {
 	i := NewInstance(t, []byte(fmt.Sprintf(`
 services:
   container:
@@ -112,6 +112,9 @@ services:
 
 func TestMultipleMiddlewares(t *testing.T) {
 	headerForwarder := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Forwarded-For") == "" {
+			t.Fatalf("expected X-Forwarded-For header to be set")
+		}
 		w.Header().Set("Custom-Header", r.Header.Get("Custom-Header"))
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -125,6 +128,7 @@ services:
     middlewares:
       authforward:
         address: "%s"
+        xforwarded: true
         requestheaders: ["Custom-Header"]
         responseheaders: ["Custom-Header"]
       ipallow:
