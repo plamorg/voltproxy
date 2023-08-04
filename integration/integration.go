@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/docker/docker/api/types"
 	"github.com/plamorg/voltproxy/config"
 	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/services"
@@ -26,13 +27,13 @@ type Instance struct {
 }
 
 // NewInstance creates a new instance of the reverse proxy with the given config.
-func NewInstance(t *testing.T, confData []byte) *Instance {
+func NewInstance(t *testing.T, confData []byte, containers []types.Container) *Instance {
 	conf, err := config.Parse(confData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	docker := dockerapi.NewMock(nil)
+	docker := dockerapi.NewMock(containers)
 
 	services, err := conf.ServiceList(docker)
 	if err != nil {
