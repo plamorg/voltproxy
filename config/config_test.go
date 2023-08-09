@@ -3,6 +3,7 @@ package config
 import (
 	"errors"
 	"reflect"
+	"slices"
 
 	"testing"
 
@@ -395,6 +396,11 @@ func TestConfigTLSHosts(t *testing.T) {
 						Host:     "a",
 						Redirect: "b",
 					},
+					"b": {
+						Host:     "b",
+						Redirect: "c",
+						TLS:      true,
+					},
 					"c": {
 						Host:     "c",
 						Redirect: "d",
@@ -402,14 +408,16 @@ func TestConfigTLSHosts(t *testing.T) {
 					},
 				},
 			},
-			[]string{"c"},
+			[]string{"b", "c"},
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			hosts := test.conf.TLSHosts()
-			if !reflect.DeepEqual(test.expected, hosts) {
+			slices.Sort(hosts)
+			slices.Sort(test.expected)
+			if !slices.Equal(hosts, test.expected) {
 				t.Errorf("expected hosts %v got hosts %v", test.expected, hosts)
 			}
 		})
