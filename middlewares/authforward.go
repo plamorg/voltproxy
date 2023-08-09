@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"log/slog"
 	"net"
 	"net/http"
 )
@@ -42,9 +43,15 @@ type AuthForward struct {
 // authentication is successful.
 func (a *AuthForward) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger := slog.Default().With(
+			slog.String("host", r.Host),
+			slog.Any("authforward", a))
+
 		// Forward the request to the authentication server.
+		logger.Debug("Forwarding request to authentication server")
 		authReq, err := http.NewRequest(http.MethodGet, a.Address, nil)
 		if err != nil {
+			logger.Error("Failed to create request to authentication server", slog.Any("error", err))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -87,16 +94,20 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 
 		res, err := noRedirectClient.Do(authReq)
 		if err != nil {
+			logger.Error("Failed to send authentication request", slog.Any("error", err), slog.Any("request", authReq))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		defer res.Body.Close()
+		logger.Debug("Authentication server responded", slog.Any("response", res))
 
 		authFailed := res.StatusCode < http.StatusOK || res.StatusCode >= http.StatusMultipleChoices
 
 		// If initial authentication has failed, try redirect to the next location given
 		// by the authentication server.
 		if authFailed {
+			logger.Debug("Initial authentication failed, attempting to redirect to next location")
+
 			if location, err := res.Location(); err == nil && location.String() != "" {
 				http.Redirect(w, r, location.String(), res.StatusCode)
 			} else {

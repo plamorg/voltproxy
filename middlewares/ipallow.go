@@ -1,6 +1,7 @@
 package middlewares
 
 import (
+	"log/slog"
 	"net"
 	"net/http"
 )
@@ -18,15 +19,26 @@ func NewIPAllow(allowedIPs []string) *IPAllow {
 // If the remote address is not in the allowed IP addresses, it returns a 403 Forbidden.
 func (ip *IPAllow) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger := slog.Default().With(
+			slog.String("host", r.Host),
+			slog.Group("ipallow",
+				slog.Any("allowedIPs", *ip),
+				slog.String("remoteAddr", r.RemoteAddr),
+			))
+
 		host, _, err := net.SplitHostPort(r.RemoteAddr)
 		if err == nil {
 			for _, allowedIP := range *ip {
 				if host == allowedIP || inCIDR(host, allowedIP) {
+					logger.Debug("Remote address is allowed")
 					next.ServeHTTP(w, r)
 					return
 				}
 			}
+		} else {
+			logger.Error("Error while splitting remote address", slog.Any("error", err))
 		}
+		logger.Debug("Remote address is not allowed")
 		w.WriteHeader(http.StatusForbidden)
 	})
 }

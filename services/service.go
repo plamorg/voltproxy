@@ -3,6 +3,7 @@ package services
 
 import (
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -49,23 +50,31 @@ func (l *List) TLSHandler() http.Handler {
 
 func (l *List) handler(tls bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		logger := slog.Default().With(slog.String("host", r.Host), slog.Bool("tls", tls))
+
+		logger.Debug("Handling request")
 		service, err := l.findServiceWithHost(r.Host)
 		if err != nil {
+			logger.Debug("Error while finding service", slog.Any("error", err))
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		if (*service).Config().TLS && !tls {
-			http.Redirect(w, r, "https://"+r.Host+r.URL.String(), http.StatusMovedPermanently)
+			redirectURL := "https://" + r.Host + r.URL.String()
+			logger.Debug("Redirecting to TLS server", slog.String("redirect", redirectURL))
+			http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
 			return
 		}
 		if !(*service).Config().TLS && tls {
+			logger.Debug("Service does not support TLS")
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
 		remote, err := (*service).Remote()
 		if err != nil {
+			logger.Error("Error while getting remote URL", slog.Any("error", err))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -73,12 +82,16 @@ func (l *List) handler(tls bool) http.Handler {
 		var handler http.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			proxy := httputil.NewSingleHostReverseProxy(remote)
 			r.Host = remote.Host
+			logger.Debug("Serving remote", slog.Any("remote", remote))
 			proxy.ServeHTTP(w, r)
 		})
 
 		middlewares := (*service).Config().Middlewares
-		for _, middleware := range middlewares {
-			handler = middleware.Handle(handler)
+		if len(middlewares) > 0 {
+			slog.Debug("Adding middlewares", slog.Int("count", len(middlewares)))
+			for _, middleware := range middlewares {
+				handler = middleware.Handle(handler)
+			}
 		}
 
 		handler.ServeHTTP(w, r)
