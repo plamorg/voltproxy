@@ -18,7 +18,7 @@ services:
     host: example.com
     redirect: "https://example.com"
     middlewares:
-      ipallow:
+      ipAllow:
         - 127.0.0.1
         - 10.9.0.0/24 # CIDR notation is supported!
         - 192.168.1.7
@@ -35,13 +35,13 @@ services:
     redirect: protected.example.com
     # Multiple middlewares can be added to a single service.
     middlewares:
-      ipallow:
+      ipAllow:
         - 10.9.0.1
-      authforward:
+      authForward:
         address: "https://auth.example.com"
-        xforwarded: true
-        requestheaders: []
-        responseheaders:
+        xForwarded: true
+        requestHeaders: []
+        responseHeaders:
           ["Remote-User", "Remote-Groups", "Remote-Name", "Remote-Email"]
 ```
 

@@ -25,17 +25,17 @@ var xForwardedHeaders = []string{
 // proxies to the service if the authentication is successful.
 type AuthForward struct {
 	// The address of the authentication server.
-	Address string
+	Address string `yaml:"address"`
 
 	// The headers to forward from the request to the authentication server.
 	// If this is nil, all headers will be forwarded.
-	RequestHeaders []string
+	RequestHeaders []string `yaml:"requestHeaders"`
 
 	// The headers to forward from the authentication server to the service.
-	ResponseHeaders []string
+	ResponseHeaders []string `yaml:"responseHeaders"`
 
 	// Specifies whether to forward X-Forwarded-* headers to the authentication server.
-	XForwarded bool
+	XForwarded bool `yaml:"xForwarded"`
 }
 
 // Handle communicates with the authentication server and proxies to the service if the

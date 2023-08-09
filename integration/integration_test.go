@@ -170,14 +170,23 @@ services:
 }
 
 func TestMultipleMiddlewares(t *testing.T) {
-	// headerForwarder is used as both the destination service and the authforward authentication server.
-	headerForwarder := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	authServerRan := false
+
+	fatalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Fatal("should not be called")
+	}))
+
+	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authServerRan = true
 		if r.Header.Get("X-Forwarded-For") == "" {
 			t.Errorf("expected X-Forwarded-For header to be set")
 		}
-		w.Header().Set("Custom-Header", r.Header.Get("Custom-Header"))
-		w.WriteHeader(http.StatusOK)
+		if r.Header.Get("Custom-Header") != "test" {
+			t.Errorf("expected header Custom-Header to have value test, got %s", r.Header.Get("Custom-Header"))
+		}
+		w.WriteHeader(http.StatusAccepted)
 	}))
+	defer authServer.Close()
 
 	conf := fmt.Sprintf(`
 services:
@@ -185,13 +194,12 @@ services:
     host: example.com
     redirect: "%s"
     middlewares:
-      authforward:
+      authForward:
         address: "%s"
-        xforwarded: true
-        requestheaders: ["Custom-Header"]
-        responseheaders: ["Custom-Header"]
-      ipallow:
-        - 0.0.0.0/0`, headerForwarder.URL, headerForwarder.URL)
+        xForwarded: true
+        requestHeaders: ["Custom-Header"]
+      ipAllow:
+        - 0.0.0.0/32`, fatalServer.URL, authServer.URL)
 	// In CIDR notation, 0.0.0.0/0 represents all IPv4 addresses.
 	// This means the ipallow middleware will allow all requests regardless of incoming IP address.
 
@@ -206,11 +214,11 @@ services:
 
 	res := i.Request(req)
 
-	if res.StatusCode != http.StatusOK {
+	if res.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status code %d, got %d", http.StatusOK, res.StatusCode)
 	}
 
-	if res.Header.Get("Custom-Header") != "test" {
-		t.Fatalf("expected header value %s, got %s", "test", res.Header.Get("Custom-Header"))
+	if !authServerRan {
+		t.Fatalf("expected auth server to run")
 	}
 }

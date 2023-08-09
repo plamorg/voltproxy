@@ -195,14 +195,14 @@ services:
     host: service1.example.com
     redirect: https://invalid.example.com
     middlewares:
-      ipallow:
+      ipAllow:
         - 127.0.0.1
         - 192.168.1.7
-      authforward:
+      authForward:
         address: https://auth.example.com
-        xforwarded: true
-        requestheaders: []
-        responseheaders: ["X-Auth-Response-Header"]
+        xForwarded: true
+        requestHeaders: []
+        responseHeaders: ["X-Auth-Response-Header"]
     `)
 
 	expectedConfig := &Config{

@@ -15,22 +15,22 @@ import (
 var errMustHaveOneService = fmt.Errorf("must have exactly one service")
 
 type middlewareData struct {
-	IPAllow     *middlewares.IPAllow
-	AuthForward *middlewares.AuthForward
+	IPAllow     *middlewares.IPAllow     `yaml:"ipAllow"`
+	AuthForward *middlewares.AuthForward `yaml:"authForward"`
 }
 
 type serviceMap map[string]struct {
-	Host        string
-	TLS         bool
-	Middlewares *middlewareData
+	Host        string          `yaml:"host"`
+	TLS         bool            `yaml:"tls"`
+	Middlewares *middlewareData `yaml:"middlewares"`
 
-	Container *services.ContainerInfo
-	Redirect  string
+	Container *services.ContainerInfo `yaml:"container"`
+	Redirect  string                  `yaml:"redirect"`
 }
 
 // Config represents a listing of services to proxy.
 type Config struct {
-	Services serviceMap
+	Services serviceMap `yaml:"services"`
 }
 
 func validateServices(services serviceMap) error {
