@@ -91,27 +91,27 @@ services:
 
 func TestParse(t *testing.T) {
 	tests := map[string]struct {
-		data           []byte
+		config         string
 		expectedConfig *Config
 		err            error
 	}{
 		"empty config": {
-			[]byte(``),
-			&Config{},
-			nil,
+			config:         "",
+			expectedConfig: nil,
+			err:            errInvalidConfig,
 		},
 		"no services": {
-			[]byte(`services:`),
-			&Config{},
-			nil,
+			config:         "services:",
+			expectedConfig: &Config{},
+			err:            nil,
 		},
 		"one service": {
-			[]byte(`
+			config: `
 services:
   example:
     host: host.example.com
-    redirect: https://example.com`),
-			&Config{
+    redirect: https://example.com`,
+			expectedConfig: &Config{
 				serviceMap{
 					"example": {
 						Host:     "host.example.com",
@@ -120,10 +120,10 @@ services:
 					},
 				},
 			},
-			nil,
+			err: nil,
 		},
 		"two services": {
-			[]byte(`
+			config: `
 services:
   a:
     host: ahost
@@ -135,8 +135,8 @@ services:
   b:
     host: bhost
     tls: true
-    redirect: https://b.example.com`),
-			&Config{
+    redirect: https://b.example.com`,
+			expectedConfig: &Config{
 				serviceMap{
 					"a": {
 						Host:      "ahost",
@@ -150,10 +150,10 @@ services:
 					},
 				},
 			},
-			nil,
+			err: nil,
 		},
 		"service with both address and container": {
-			[]byte(`
+			config: `
 services:
   invalid:
     host: invalid.host
@@ -161,23 +161,36 @@ services:
         name: "a"
         network: "b"
         port: 8080
-    redirect: https://invalid.example.com`),
-			nil,
-			errMustHaveOneService,
+    redirect: https://invalid.example.com`,
+			expectedConfig: nil,
+			err:            errMustHaveOneService,
 		},
 		"service with neither address no container": {
-			[]byte(`
+			config: `
 services:
   wrong:
-    `),
-			nil,
-			errMustHaveOneService,
+    `,
+			expectedConfig: nil,
+			err:            errMustHaveOneService,
+		},
+		"service with invalid middleware": {
+			config: `
+services:
+  service1:
+    host: service1.example.com
+    redirect: https://invalid.example.com
+    middlewares:
+      thisMiddlewareDoesNotExist:
+        - "test"
+        `,
+			expectedConfig: nil,
+			err:            errInvalidConfig,
 		},
 	}
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			config, err := Parse(test.data)
+			config, err := Parse([]byte(test.config))
 			if !errors.Is(err, test.err) {
 				t.Fatalf("expected error %v got error %v", test.err, err)
 			}

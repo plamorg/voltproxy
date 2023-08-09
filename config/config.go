@@ -2,6 +2,7 @@
 package config
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/plamorg/voltproxy/services"
 )
 
+var errInvalidConfig = fmt.Errorf("invalid config")
 var errMustHaveOneService = fmt.Errorf("must have exactly one service")
 
 type middlewareData struct {
@@ -49,12 +51,14 @@ func validateServices(services serviceMap) error {
 // Parse parses data as YAML to return a Config.
 func Parse(data []byte) (*Config, error) {
 	var config Config
-	if err := yaml.Unmarshal(data, &config); err != nil {
-		return nil, err
+	decoder := yaml.NewDecoder(bytes.NewBuffer(data))
+	decoder.KnownFields(true)
+	if err := decoder.Decode(&config); err != nil {
+		return nil, fmt.Errorf("%w: %w", errInvalidConfig, err)
 	}
 
 	if err := validateServices(config.Services); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", errInvalidConfig, err)
 	}
 
 	return &config, nil
