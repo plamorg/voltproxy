@@ -74,7 +74,7 @@ func (l *List) handler(tls bool) http.Handler {
 
 		remote, err := (*service).Remote()
 		if err != nil {
-			logger.Error("Error while getting remote URL", slog.Any("error", err))
+			logger.Warn("Error while getting remote URL", slog.Any("error", err))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

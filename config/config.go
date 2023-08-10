@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"github.com/plamorg/voltproxy/dockerapi"
+	"github.com/plamorg/voltproxy/logging"
 	"github.com/plamorg/voltproxy/middlewares"
 	"github.com/plamorg/voltproxy/services"
 )
@@ -32,7 +33,8 @@ type serviceMap map[string]struct {
 
 // Config represents a listing of services to proxy.
 type Config struct {
-	Services serviceMap `yaml:"services"`
+	Services serviceMap     `yaml:"services"`
+	Log      logging.Config `yaml:"log"`
 }
 
 func validateServices(services serviceMap) error {

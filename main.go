@@ -12,14 +12,7 @@ import (
 	"github.com/plamorg/voltproxy/dockerapi"
 )
 
-func initializeLogger() {
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	slog.SetDefault(logger)
-}
-
 func main() {
-	initializeLogger()
-
 	confBytes, err := os.ReadFile("./config.yml")
 	if err != nil {
 		slog.Error("Error while reading configuration file", slog.Any("error", err))
@@ -31,6 +24,12 @@ func main() {
 		slog.Error("Error while parsing configuration file", slog.Any("error", err))
 		os.Exit(1)
 	}
+
+	if err = conf.Log.Initialize(); err != nil {
+		slog.Error("Error while initializing logging", slog.Any("error", err))
+		os.Exit(1)
+	}
+	slog.Info("Initialized logging", slog.Any("logger", conf.Log))
 
 	docker, err := dockerapi.NewClient()
 	if err != nil {

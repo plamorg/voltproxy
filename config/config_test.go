@@ -10,6 +10,7 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
 	"github.com/plamorg/voltproxy/dockerapi"
+	"github.com/plamorg/voltproxy/logging"
 	"github.com/plamorg/voltproxy/middlewares"
 	"github.com/plamorg/voltproxy/services"
 )
@@ -112,7 +113,7 @@ services:
     host: host.example.com
     redirect: https://example.com`,
 			expectedConfig: &Config{
-				serviceMap{
+				Services: serviceMap{
 					"example": {
 						Host:     "host.example.com",
 						TLS:      false,
@@ -137,7 +138,7 @@ services:
     tls: true
     redirect: https://b.example.com`,
 			expectedConfig: &Config{
-				serviceMap{
+				Services: serviceMap{
 					"a": {
 						Host:      "ahost",
 						TLS:       false,
@@ -186,6 +187,22 @@ services:
 			expectedConfig: nil,
 			err:            errInvalidConfig,
 		},
+		"": {
+			config: `
+log:
+  level: "warn"
+  handler: "json"
+
+services:
+        `,
+			expectedConfig: &Config{
+				Log: logging.Config{
+					Level:   "warn",
+					Handler: "json",
+				},
+			},
+			err: nil,
+		},
 	}
 
 	for name, test := range tests {
@@ -219,7 +236,7 @@ services:
     `)
 
 	expectedConfig := &Config{
-		serviceMap{
+		Services: serviceMap{
 			"service1": {
 				Host:     "service1.example.com",
 				Redirect: "https://invalid.example.com",
@@ -259,7 +276,7 @@ func TestConfigServiceList(t *testing.T) {
 		},
 		"one redirect": {
 			Config{
-				serviceMap{
+				Services: serviceMap{
 					"a": {
 						Host:     "a",
 						Redirect: "b",
@@ -273,7 +290,7 @@ func TestConfigServiceList(t *testing.T) {
 		},
 		"with middleware": {
 			Config{
-				serviceMap{
+				Services: serviceMap{
 					"a": {
 						Host:     "a",
 						Redirect: "b",
@@ -340,7 +357,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	adapter := dockerapi.NewMock(containers)
 
 	conf := Config{
-		serviceMap{
+		Services: serviceMap{
 			"a": {
 				Host: "a",
 				Container: &services.ContainerInfo{
@@ -381,7 +398,7 @@ func TestConfigTLSHosts(t *testing.T) {
 		},
 		"one redirect": {
 			Config{
-				serviceMap{
+				Services: serviceMap{
 					"a": {
 						Host:     "a",
 						Redirect: "b",
@@ -392,7 +409,7 @@ func TestConfigTLSHosts(t *testing.T) {
 		},
 		"one redirect with TLS": {
 			Config{
-				serviceMap{
+				Services: serviceMap{
 					"a": {
 						Host:     "a",
 						Redirect: "b",
@@ -404,7 +421,7 @@ func TestConfigTLSHosts(t *testing.T) {
 		},
 		"multiple redirects": {
 			Config{
-				serviceMap{
+				Services: serviceMap{
 					"a": {
 						Host:     "a",
 						Redirect: "b",

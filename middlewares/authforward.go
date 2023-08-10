@@ -51,7 +51,7 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 		logger.Debug("Forwarding request to authentication server")
 		authReq, err := http.NewRequest(http.MethodGet, a.Address, nil)
 		if err != nil {
-			logger.Error("Failed to create request to authentication server", slog.Any("error", err))
+			logger.Warn("Failed to create request to authentication server", slog.Any("error", err))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
@@ -94,7 +94,7 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 
 		res, err := noRedirectClient.Do(authReq)
 		if err != nil {
-			logger.Error("Failed to send authentication request", slog.Any("error", err), slog.Any("request", authReq))
+			logger.Warn("Failed to send authentication request", slog.Any("error", err), slog.Any("request", authReq))
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}

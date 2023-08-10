@@ -36,7 +36,7 @@ func (ip *IPAllow) Handle(next http.Handler) http.Handler {
 				}
 			}
 		} else {
-			logger.Error("Error while splitting remote address", slog.Any("error", err))
+			logger.Warn("Error while splitting remote address", slog.Any("error", err))
 		}
 		logger.Debug("Remote address is not allowed")
 		w.WriteHeader(http.StatusForbidden)

@@ -39,7 +39,6 @@ Note:
 
 ### Middleware Configuration
 
-To further customize your configuration, you can add middlewares to your services.
 Middlewares allow you to apply additional functionality to your services, such as IP filtering or authentication.
 Multiple middlewares can be added to a single service.
 
@@ -73,13 +72,27 @@ services:
         - 192.168.1.7
 ```
 
+### Logging Configuration
+
+You can customize logging to your liking by changing the logger's verbosity (through level) and format (through handler):
+
+```yaml
+# config.yml
+services:
+  # ...
+
+log:
+  level: "info" # can be "debug", "info", "warn", or "error".
+  handler: "text" # can be "text" or "json".
+```
+
 ## 📝 Usage
 
 You can run voltproxy locally or deploy with Docker.
 
 ### Deploying with Docker
 
-1. Create `config.yml`. Example:
+1. Create voltproxy configuration `config.yml`. Example:
 
 ```yaml
 # config.yml
@@ -92,7 +105,7 @@ services:
       port: 5173
 ```
 
-2. Create `docker-compose.yml`. Example:
+2. Create Docker Compose file `docker-compose.yml`. Example:
 
 ```yaml
 # docker-compose.yml
