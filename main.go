@@ -80,5 +80,5 @@ func main() {
 	slog.Info("Listening...", slog.String("readTimeout", conf.ReadTimeout.String()))
 
 	go listen(certManager.HTTPHandler(services.Handler()), conf.ReadTimeout)
-	listenTLS(services.Handler(), conf.ReadTimeout, certManager.TLSConfig())
+	listenTLS(services.TLSHandler(), conf.ReadTimeout, certManager.TLSConfig())
 }
