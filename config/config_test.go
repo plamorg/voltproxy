@@ -94,6 +94,27 @@ func TestServiceMapValidate(t *testing.T) {
 			},
 			errDuplicateHost,
 		},
+		"ignore duplicate host if host is empty string": {
+			serviceMap{
+				"empty1": {
+					Config:   services.Config{Host: ""},
+					Services: services.Services{Redirect: "c"},
+				},
+				"empty2": {
+					Config:   services.Config{Host: ""},
+					Services: services.Services{Redirect: "c"},
+				},
+				"undefined1": {
+					Config:   services.Config{},
+					Services: services.Services{Redirect: "c"},
+				},
+				"undefined2": {
+					Config:   services.Config{},
+					Services: services.Services{Redirect: "c"},
+				},
+			},
+			nil,
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {

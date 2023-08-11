@@ -252,7 +252,6 @@ services:
       host: foo.example.com
       redirect: "%s"
     bar:
-      host: bar.example.com
       redirect: "%s"
     invalid:
       host: invalid.example.com

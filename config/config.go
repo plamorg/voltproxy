@@ -45,7 +45,12 @@ func (s *serviceMap) validate() error {
 		if _, ok := hosts[service.Host]; ok {
 			return fmt.Errorf("%w %s", errDuplicateHost, service.Host)
 		}
-		hosts[service.Host] = true
+
+		// Allow empty host for services. This is useful for services that
+		// should only be accessed via another load balancer service.
+		if service.Host != "" {
+			hosts[service.Host] = true
+		}
 	}
 	return nil
 }
