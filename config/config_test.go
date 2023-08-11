@@ -81,6 +81,19 @@ func TestServiceMapValidate(t *testing.T) {
 			},
 			errMustHaveOneService,
 		},
+		"services with duplicate host": {
+			serviceMap{
+				"a": {
+					Config:   services.Config{Host: "b"},
+					Services: services.Services{Redirect: "c"},
+				},
+				"d": {
+					Config:   services.Config{Host: "b"},
+					Services: services.Services{Redirect: "c"},
+				},
+			},
+			errDuplicateHost,
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -410,7 +423,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	}
 }
 
-func TestServiceListLoadBalancerError(t *testing.T) {
+func TestConfigServiceListLoadBalancerError(t *testing.T) {
 	tests := map[string]struct {
 		lbInfo services.LoadBalancerInfo
 	}{
@@ -450,27 +463,6 @@ func TestServiceListLoadBalancerError(t *testing.T) {
 				t.Errorf("expected error %v got error %v", errInvalidConfig, err)
 			}
 		})
-	}
-}
-
-func TestServiceList(t *testing.T) {
-	conf := Config{
-		Services: serviceMap{
-			"foo": {
-				Config: services.Config{Host: "a"},
-				Services: services.Services{
-					LoadBalancer: &services.LoadBalancerInfo{
-						Strategy: "not a valid strategy",
-					},
-				},
-			},
-		},
-	}
-
-	_, err := conf.ServiceList(dockerapi.NewMock(nil))
-
-	if !errors.Is(err, errInvalidConfig) {
-		t.Errorf("expected error %v got error %v", errInvalidConfig, err)
 	}
 }
 

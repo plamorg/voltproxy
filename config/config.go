@@ -17,6 +17,7 @@ var (
 	errInvalidConfig      = fmt.Errorf("invalid config")
 	errMustHaveOneService = fmt.Errorf("must have exactly one service")
 	errNoServiceWithName  = fmt.Errorf("no service with name")
+	errDuplicateHost      = fmt.Errorf("duplicate host")
 )
 
 type serviceMap map[string]struct {
@@ -32,11 +33,19 @@ type Config struct {
 	ReadTimeout time.Duration  `yaml:"readTimeout"`
 }
 
+// validate returns true if every service has exactly one service and
+// there are no duplicate hosts.
 func (s *serviceMap) validate() error {
+	hosts := make(map[string]bool)
 	for name, service := range *s {
 		if !service.Services.Validate() {
 			return fmt.Errorf("%s: %w", name, errMustHaveOneService)
 		}
+
+		if _, ok := hosts[service.Host]; ok {
+			return fmt.Errorf("%w %s", errDuplicateHost, service.Host)
+		}
+		hosts[service.Host] = true
 	}
 	return nil
 }

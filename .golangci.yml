@@ -6,7 +6,10 @@ linters:
   disable-all: true
   enable:
     - bodyclose
+    - errname
+    - errorlint
     - errcheck
+    - exhaustive
     - gofumpt
     - gosec
     - gosimple
