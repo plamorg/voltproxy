@@ -22,24 +22,29 @@ type ContainerInfo struct {
 
 // Container is a service that is running in a Docker container.
 type Container struct {
-	adapter *dockerapi.Adapter
-	config  Config
-	info    ContainerInfo
+	data
+
+	docker *dockerapi.Adapter
+	info   ContainerInfo
 }
 
 // NewContainer creates a new service from a docker container.
-func NewContainer(adapter dockerapi.Adapter, config Config, info ContainerInfo) *Container {
-	return &Container{&adapter, config, info}
+func NewContainer(config Config, docker dockerapi.Adapter, info ContainerInfo) *Container {
+	return &Container{
+		data:   config.data(),
+		docker: &docker,
+		info:   info,
+	}
 }
 
-// Config returns the service config of the container.
-func (c *Container) Config() Config {
-	return c.config
+// Data returns the data of the Container service.
+func (c *Container) Data() data {
+	return c.data
 }
 
 // Remote iterates through the list of containers and returns the remote of the matching container by name.
 func (c *Container) Remote() (*url.URL, error) {
-	containers, err := (*c.adapter).ContainerList()
+	containers, err := (*c.docker).ContainerList()
 	if err != nil {
 		return nil, err
 	}

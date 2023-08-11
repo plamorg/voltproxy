@@ -4,28 +4,19 @@ package config
 import (
 	"bytes"
 	"fmt"
-	"reflect"
 
 	"gopkg.in/yaml.v3"
 
 	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/logging"
-	"github.com/plamorg/voltproxy/middlewares"
 	"github.com/plamorg/voltproxy/services"
 )
 
 var errInvalidConfig = fmt.Errorf("invalid config")
 var errMustHaveOneService = fmt.Errorf("must have exactly one service")
 
-type middlewareData struct {
-	IPAllow     *middlewares.IPAllow     `yaml:"ipAllow"`
-	AuthForward *middlewares.AuthForward `yaml:"authForward"`
-}
-
 type serviceMap map[string]struct {
-	Host        string          `yaml:"host"`
-	TLS         bool            `yaml:"tls"`
-	Middlewares *middlewareData `yaml:"middlewares"`
+	services.Config `yaml:",inline"`
 
 	Container *services.ContainerInfo `yaml:"container"`
 	Redirect  string                  `yaml:"redirect"`
@@ -37,8 +28,8 @@ type Config struct {
 	Log      logging.Config `yaml:"log"`
 }
 
-func validateServices(services serviceMap) error {
-	for name, service := range services {
+func (s *serviceMap) validate() error {
+	for name, service := range *s {
 		var (
 			hasContainer = service.Container != nil
 			hasAddress   = service.Redirect != ""
@@ -59,7 +50,7 @@ func Parse(data []byte) (*Config, error) {
 		return nil, fmt.Errorf("%w: %w", errInvalidConfig, err)
 	}
 
-	if err := validateServices(config.Services); err != nil {
+	if err := config.Services.validate(); err != nil {
 		return nil, fmt.Errorf("%w: %w", errInvalidConfig, err)
 	}
 
@@ -70,20 +61,11 @@ func Parse(data []byte) (*Config, error) {
 func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
 	var s services.List
 	for _, service := range c.Services {
-		var middlewareList []middlewares.Middleware
-		if service.Middlewares != nil {
-			middlewareList = service.Middlewares.List()
-		}
-		config := services.Config{
-			Host:        service.Host,
-			TLS:         service.TLS,
-			Middlewares: middlewareList,
-		}
 		if service.Container != nil {
-			container := services.NewContainer(docker, config, *service.Container)
+			container := services.NewContainer(service.Config, docker, *service.Container)
 			s = append(s, container)
 		} else if service.Redirect != "" {
-			s = append(s, services.NewRedirect(config, service.Redirect))
+			s = append(s, services.NewRedirect(service.Config, service.Redirect))
 		}
 	}
 	return s, nil
@@ -98,17 +80,4 @@ func (c *Config) TLSHosts() []string {
 		}
 	}
 	return hosts
-}
-
-// List returns a list of active middlewares from the middlewareData.
-func (d *middlewareData) List() []middlewares.Middleware {
-	var m []middlewares.Middleware
-	v := reflect.ValueOf(*d)
-	for i := 0; i < v.NumField(); i++ {
-		if v.Field(i).IsNil() {
-			continue
-		}
-		m = append(m, v.Field(i).Interface().(middlewares.Middleware))
-	}
-	return m
 }

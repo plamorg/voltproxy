@@ -25,7 +25,7 @@ func TestContainerRemoteSuccess(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(adapter, Config{Host: "host"}, ContainerInfo{
+	container := NewContainer(Config{Host: "host"}, adapter, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    1234,
@@ -66,7 +66,7 @@ func TestContainerRemoteNotInNetwork(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(adapter, Config{Host: "host"}, ContainerInfo{
+	container := NewContainer(Config{Host: "host"}, adapter, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    25565,
@@ -105,7 +105,7 @@ func TestContainerRemoteNoMatchingContainer(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(adapter, Config{Host: "host"}, ContainerInfo{
+	container := NewContainer(Config{Host: "host"}, adapter, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    4321,
@@ -127,7 +127,7 @@ func (badAdapter) ContainerList() ([]types.Container, error) {
 }
 
 func TestContainerRemoteBadAdapter(t *testing.T) {
-	container := NewContainer(badAdapter{}, Config{Host: "host"}, ContainerInfo{
+	container := NewContainer(Config{Host: "host"}, badAdapter{}, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    4321,

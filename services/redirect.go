@@ -1,23 +1,25 @@
 package services
 
-import (
-	"net/url"
-)
+import "net/url"
 
 // Redirect is a service that redirects to a remote URL.
 type Redirect struct {
-	config Config
+	data
+
 	remote string
 }
 
 // NewRedirect creates a new Redirect service.
 func NewRedirect(config Config, remote string) *Redirect {
-	return &Redirect{config, remote}
+	return &Redirect{
+		data:   config.data(),
+		remote: remote,
+	}
 }
 
-// Config returns the configuration of the Redirect service.
-func (r *Redirect) Config() Config {
-	return r.config
+// Data returns the data of the Redirect service.
+func (r *Redirect) Data() data {
+	return r.data
 }
 
 // Remote returns the remote URL of the Redirect service.

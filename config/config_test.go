@@ -15,7 +15,7 @@ import (
 	"github.com/plamorg/voltproxy/services"
 )
 
-func TestValidateServices(t *testing.T) {
+func TestServiceMapValidate(t *testing.T) {
 	tests := map[string]struct {
 		services serviceMap
 		err      error
@@ -25,39 +25,54 @@ func TestValidateServices(t *testing.T) {
 			nil,
 		},
 		"service with address": {
-			serviceMap{"a": {Host: "b", Redirect: "c"}},
+			serviceMap{
+				"a": {
+					Config:   services.Config{Host: "b"},
+					Redirect: "c",
+				},
+			},
 			nil,
 		},
 		"service with container": {
 			serviceMap{
 				"a": {
-					Host:      "b",
+					Config:    services.Config{Host: "b"},
 					Container: &services.ContainerInfo{Name: "c", Network: "d", Port: 0},
 				},
 			},
 			nil,
 		},
 		"service with TLS": {
-			serviceMap{"secure": {Host: "a", Redirect: "b", TLS: true}},
+			serviceMap{
+				"secure": {
+					Config:   services.Config{Host: "a", TLS: true},
+					Redirect: "b",
+				},
+			},
 			nil,
 		},
 		"service with middleware": {
 			serviceMap{
 				"mid": {
-					Host:     "host",
 					Redirect: "https://example.com",
-					Middlewares: &middlewareData{
-						IPAllow: middlewares.NewIPAllow([]string{"172.20.0.1"}),
-					}}},
+					Config: services.Config{
+						Host: "host",
+						Middlewares: &middlewares.Config{
+							IPAllow: middlewares.NewIPAllow([]string{"172.20.0.1"}),
+						},
+					},
+				},
+			},
 			nil,
 		},
 		"service with no container/address": {
-			serviceMap{"bad": {Host: "b"}},
+			serviceMap{"bad": {Config: services.Config{Host: "b"}}},
 			errMustHaveOneService,
 		},
 		"service with both container and address": {
 			serviceMap{
-				"invalid": {Host: "b",
+				"invalid": {
+					Config:   services.Config{Host: "b"},
 					Redirect: "c",
 					Container: &services.ContainerInfo{
 						Name:    "d",
@@ -71,7 +86,7 @@ func TestValidateServices(t *testing.T) {
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			if err := validateServices(test.services); !errors.Is(err, test.err) {
+			if err := test.services.validate(); !errors.Is(err, test.err) {
 				t.Errorf("expected error %v got error %v", test.err, err)
 			}
 		})
@@ -115,8 +130,10 @@ services:
 			expectedConfig: &Config{
 				Services: serviceMap{
 					"example": {
-						Host:     "host.example.com",
-						TLS:      false,
+						Config: services.Config{
+							Host: "host.example.com",
+							TLS:  false,
+						},
 						Redirect: "https://example.com",
 					},
 				},
@@ -140,13 +157,17 @@ services:
 			expectedConfig: &Config{
 				Services: serviceMap{
 					"a": {
-						Host:      "ahost",
-						TLS:       false,
+						Config: services.Config{
+							Host: "ahost",
+							TLS:  false,
+						},
 						Container: &services.ContainerInfo{Name: "test", Network: "net", Port: 1234},
 					},
 					"b": {
-						Host:     "bhost",
-						TLS:      true,
+						Config: services.Config{
+							Host: "bhost",
+							TLS:  true,
+						},
 						Redirect: "https://b.example.com",
 					},
 				},
@@ -238,17 +259,19 @@ services:
 	expectedConfig := &Config{
 		Services: serviceMap{
 			"service1": {
-				Host:     "service1.example.com",
-				Redirect: "https://invalid.example.com",
-				Middlewares: &middlewareData{
-					IPAllow: middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
-					AuthForward: &middlewares.AuthForward{
-						Address:         "https://auth.example.com",
-						XForwarded:      true,
-						RequestHeaders:  []string{},
-						ResponseHeaders: []string{"X-Auth-Response-Header"},
+				Config: services.Config{
+					Host: "service1.example.com",
+					Middlewares: &middlewares.Config{
+						IPAllow: middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
+						AuthForward: &middlewares.AuthForward{
+							Address:         "https://auth.example.com",
+							XForwarded:      true,
+							RequestHeaders:  []string{},
+							ResponseHeaders: []string{"X-Auth-Response-Header"},
+						},
 					},
 				},
+				Redirect: "https://invalid.example.com",
 			},
 		},
 	}
@@ -278,7 +301,9 @@ func TestConfigServiceList(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Host:     "a",
+						Config: services.Config{
+							Host: "a",
+						},
 						Redirect: "b",
 					},
 				},
@@ -292,18 +317,22 @@ func TestConfigServiceList(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Host:     "a",
-						Redirect: "b",
-						Middlewares: &middlewareData{
-							IPAllow: middlewares.NewIPAllow(nil),
+						Config: services.Config{
+							Host: "a",
+							Middlewares: &middlewares.Config{
+								IPAllow: middlewares.NewIPAllow(nil),
+							},
 						},
+						Redirect: "b",
 					},
 				},
 			},
 			services.List{
 				services.NewRedirect(services.Config{
-					Host:        "a",
-					Middlewares: []middlewares.Middleware{middlewares.NewIPAllow(nil)},
+					Host: "a",
+					Middlewares: &middlewares.Config{
+						IPAllow: middlewares.NewIPAllow(nil),
+					},
 				}, "b"),
 			},
 			nil,
@@ -323,8 +352,8 @@ func TestConfigServiceList(t *testing.T) {
 					expectedService := test.expected[i]
 					expectedRemote, expectedErr := expectedService.Remote()
 
-					if !reflect.DeepEqual(service.Config(), expectedService.Config()) {
-						t.Errorf("expected service %v got service %v", expectedService.Config(), service.Config())
+					if !reflect.DeepEqual(service.Data(), expectedService.Data()) {
+						t.Errorf("expected service %v got service %v", expectedService.Data(), service.Data())
 					}
 					if remote.String() != expectedRemote.String() {
 						t.Errorf("expected remote %s got remote %s", expectedRemote.String(), remote.String())
@@ -359,7 +388,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	conf := Config{
 		Services: serviceMap{
 			"a": {
-				Host: "a",
+				Config: services.Config{Host: "a"},
 				Container: &services.ContainerInfo{
 					Name:    "b",
 					Network: "c",
@@ -370,7 +399,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	}
 
 	expectedServices := services.List{
-		services.NewContainer(adapter, services.Config{Host: "a"}, services.ContainerInfo{
+		services.NewContainer(services.Config{Host: "a"}, adapter, services.ContainerInfo{
 			Name:    "b",
 			Network: "c",
 			Port:    1234,
@@ -400,7 +429,7 @@ func TestConfigTLSHosts(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Host:     "a",
+						Config:   services.Config{Host: "a"},
 						Redirect: "b",
 					},
 				},
@@ -411,9 +440,11 @@ func TestConfigTLSHosts(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Host:     "a",
+						Config: services.Config{
+							Host: "a",
+							TLS:  true,
+						},
 						Redirect: "b",
-						TLS:      true,
 					},
 				},
 			},
@@ -423,18 +454,22 @@ func TestConfigTLSHosts(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Host:     "a",
+						Config:   services.Config{Host: "a"},
 						Redirect: "b",
 					},
 					"b": {
-						Host:     "b",
+						Config: services.Config{
+							Host: "b",
+							TLS:  true,
+						},
 						Redirect: "c",
-						TLS:      true,
 					},
 					"c": {
-						Host:     "c",
+						Config: services.Config{
+							Host: "c",
+							TLS:  true,
+						},
 						Redirect: "d",
-						TLS:      true,
 					},
 				},
 			},
@@ -449,52 +484,6 @@ func TestConfigTLSHosts(t *testing.T) {
 			slices.Sort(test.expected)
 			if !slices.Equal(hosts, test.expected) {
 				t.Errorf("expected hosts %v got hosts %v", test.expected, hosts)
-			}
-		})
-	}
-}
-
-func TestMiddlewareDataList(t *testing.T) {
-	tests := map[string]struct {
-		data     middlewareData
-		expected []middlewares.Middleware
-	}{
-		"no middlewares": {
-			middlewareData{},
-			nil,
-		},
-		"one middleware": {
-			middlewareData{
-				IPAllow: middlewares.NewIPAllow([]string{"a"}),
-			},
-			[]middlewares.Middleware{
-				middlewares.NewIPAllow([]string{"a"}),
-			},
-		},
-		"multiple middlewares": {
-			middlewareData{
-				IPAllow: middlewares.NewIPAllow([]string{"a"}),
-				AuthForward: &middlewares.AuthForward{
-					Address:         "auth server",
-					RequestHeaders:  []string{"1", "2"},
-					ResponseHeaders: []string{"3"},
-				},
-			},
-			[]middlewares.Middleware{
-				middlewares.NewIPAllow([]string{"a"}),
-				&middlewares.AuthForward{
-					Address:         "auth server",
-					RequestHeaders:  []string{"1", "2"},
-					ResponseHeaders: []string{"3"},
-				},
-			},
-		},
-	}
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
-			middlewares := test.data.List()
-			if !reflect.DeepEqual(test.expected, middlewares) {
-				t.Errorf("expected middlewares %v got middlewares %v", test.expected, middlewares)
 			}
 		})
 	}
