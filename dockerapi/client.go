@@ -2,6 +2,7 @@ package dockerapi
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -18,6 +19,10 @@ func NewClient() (*Client, error) {
 	if err != nil {
 		return nil, err
 	}
+	slog.Info("Docker client created successfully", slog.Group("client",
+		slog.String("host", c.DaemonHost()),
+		slog.String("apiVersion", c.ClientVersion()),
+	))
 	return &Client{c}, nil
 }
 
