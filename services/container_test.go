@@ -34,7 +34,6 @@ func TestContainerRemoteSuccess(t *testing.T) {
 	expectedRemote := "http://127.0.0.1:1234"
 
 	remote, err := container.Remote()
-
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}

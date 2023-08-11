@@ -12,8 +12,10 @@ import (
 	"github.com/plamorg/voltproxy/services"
 )
 
-var errInvalidConfig = fmt.Errorf("invalid config")
-var errMustHaveOneService = fmt.Errorf("must have exactly one service")
+var (
+	errInvalidConfig      = fmt.Errorf("invalid config")
+	errMustHaveOneService = fmt.Errorf("must have exactly one service")
+)
 
 type serviceMap map[string]struct {
 	services.Config `yaml:",inline"`

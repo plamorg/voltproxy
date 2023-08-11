@@ -7,9 +7,11 @@ import (
 	"os"
 )
 
-var errInvalidLevel = fmt.Errorf("invalid log level, must be one of: debug, info, warn, error")
-var errInvalidHandler = fmt.Errorf("invalid handler")
-var errInvalidSettings = fmt.Errorf("invalid logging settings")
+var (
+	errInvalidLevel    = fmt.Errorf("invalid log level, must be one of: debug, info, warn, error")
+	errInvalidHandler  = fmt.Errorf("invalid handler")
+	errInvalidSettings = fmt.Errorf("invalid logging settings")
+)
 
 // Config defines the configuration for the logger.
 type Config struct {

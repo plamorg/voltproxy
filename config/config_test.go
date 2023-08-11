@@ -4,7 +4,6 @@ import (
 	"errors"
 	"reflect"
 	"slices"
-
 	"testing"
 
 	"github.com/docker/docker/api/types"
@@ -367,7 +366,6 @@ func TestConfigServiceList(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestConfigServiceListWithContainers(t *testing.T) {
