@@ -16,13 +16,13 @@ import (
 var (
 	errInvalidConfig      = fmt.Errorf("invalid config")
 	errMustHaveOneService = fmt.Errorf("must have exactly one service")
+	errNoServiceWithName  = fmt.Errorf("no service with name")
 )
 
 type serviceMap map[string]struct {
 	services.Config `yaml:",inline"`
 
-	Container *services.ContainerInfo `yaml:"container"`
-	Redirect  string                  `yaml:"redirect"`
+	services.Services `yaml:",inline"`
 }
 
 // Config represents a listing of services to proxy.
@@ -34,11 +34,7 @@ type Config struct {
 
 func (s *serviceMap) validate() error {
 	for name, service := range *s {
-		var (
-			hasContainer = service.Container != nil
-			hasAddress   = service.Redirect != ""
-		)
-		if hasContainer == hasAddress {
+		if !service.Services.Validate() {
 			return fmt.Errorf("%s: %w", name, errMustHaveOneService)
 		}
 	}
@@ -63,16 +59,38 @@ func Parse(data []byte) (*Config, error) {
 
 // ServiceList returns a list of services from the config.
 func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
-	var s services.List
-	for _, service := range c.Services {
+	m := make(map[string]services.Service)
+	for name, service := range c.Services {
 		if service.Container != nil {
-			container := services.NewContainer(service.Config, docker, *service.Container)
-			s = append(s, container)
+			m[name] = services.NewContainer(service.Config, docker, *service.Container)
 		} else if service.Redirect != "" {
-			s = append(s, services.NewRedirect(service.Config, service.Redirect))
+			m[name] = services.NewRedirect(service.Config, service.Redirect)
 		}
 	}
-	return s, nil
+
+	for name, service := range c.Services {
+		if service.LoadBalancer != nil {
+			var lbServices services.List
+			for _, serviceName := range service.LoadBalancer.ServiceNames {
+				if s, ok := m[serviceName]; ok {
+					lbServices = append(lbServices, s)
+				} else {
+					return nil, fmt.Errorf("%w: %s: %w %s", errInvalidConfig, name, errNoServiceWithName, serviceName)
+				}
+			}
+			lb, err := services.NewLoadBalancer(service.Config, lbServices, *service.LoadBalancer)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %s: %w", errInvalidConfig, name, err)
+			}
+			m[name] = lb
+		}
+	}
+
+	var l services.List
+	for _, service := range m {
+		l = append(l, service)
+	}
+	return l, nil
 }
 
 // TLSHosts returns a list of hosts that require TLS.

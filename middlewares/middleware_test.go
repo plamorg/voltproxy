@@ -7,15 +7,15 @@ import (
 
 func TestConfigList(t *testing.T) {
 	tests := map[string]struct {
-		config   Config
+		config   Middlewares
 		expected []Middleware
 	}{
 		"no middlewares": {
-			Config{},
+			Middlewares{},
 			nil,
 		},
 		"one middleware": {
-			Config{
+			Middlewares{
 				IPAllow: NewIPAllow([]string{"a"}),
 			},
 			[]Middleware{
@@ -23,7 +23,7 @@ func TestConfigList(t *testing.T) {
 			},
 		},
 		"multiple middlewares": {
-			Config{
+			Middlewares{
 				IPAllow: NewIPAllow([]string{"a"}),
 				AuthForward: &AuthForward{
 					Address:         "auth server",

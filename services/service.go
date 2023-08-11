@@ -7,18 +7,42 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"reflect"
 
 	"github.com/plamorg/voltproxy/middlewares"
 )
+
+// Services is a structure of all services configurations.
+type Services struct {
+	Container    *ContainerInfo    `yaml:"container"`
+	Redirect     string            `yaml:"redirect"`
+	LoadBalancer *LoadBalancerInfo `yaml:"loadBalancer"`
+}
+
+// Validate returns true if there is exactly one service.
+func (s *Services) Validate() bool {
+	v := reflect.ValueOf(*s)
+	count := 0
+	for i := 0; i < v.NumField(); i++ {
+		if v.Field(i).IsZero() {
+			continue
+		}
+		if count > 0 {
+			return false
+		}
+		count++
+	}
+	return count == 1
+}
 
 // errNoServiceFound is returned when no service with the host is found.
 var errNoServiceFound = fmt.Errorf("no service with host")
 
 // Config describes the user defined configuration for a service.
 type Config struct {
-	Host        string              `yaml:"host"`
-	TLS         bool                `yaml:"tls"`
-	Middlewares *middlewares.Config `yaml:"middlewares"`
+	Host        string                   `yaml:"host"`
+	TLS         bool                     `yaml:"tls"`
+	Middlewares *middlewares.Middlewares `yaml:"middlewares"`
 }
 
 func (c *Config) data() data {
@@ -39,17 +63,15 @@ type data struct {
 	middlewares []middlewares.Middleware
 }
 
-type service interface {
+type Service interface {
 	Data() data
 	Remote() (*url.URL, error)
 }
 
-// map[string]services.Config -> map[string]services.service
-
 // List is a list of services which can be used to proxy requests (http.Request).
-type List []service
+type List []Service
 
-func (l *List) findServiceWithHost(host string) (*service, error) {
+func (l *List) findServiceWithHost(host string) (*Service, error) {
 	for _, service := range *l {
 		if service.Data().host == host {
 			return &service, nil

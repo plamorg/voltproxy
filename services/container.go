@@ -15,9 +15,9 @@ var ErrContainerNotInNetwork = fmt.Errorf("not in network")
 
 // ContainerInfo is the information needed to find a container.
 type ContainerInfo struct {
-	Name    string
-	Network string
-	Port    uint16
+	Name    string `yaml:"name"`
+	Network string `yaml:"network"`
+	Port    uint16 `yaml:"port"`
 }
 
 // Container is a service that is running in a Docker container.

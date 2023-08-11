@@ -6,14 +6,14 @@ import (
 	"reflect"
 )
 
-// Config is an exhaustive structure of all middlewares.
-type Config struct {
+// Middlewares is an exhaustive structure of all middlewares.
+type Middlewares struct {
 	IPAllow     *IPAllow     `yaml:"ipAllow"`
 	AuthForward *AuthForward `yaml:"authForward"`
 }
 
 // List returns a list of middlewares that are not nil.
-func (c *Config) List() []Middleware {
+func (c *Middlewares) List() []Middleware {
 	var m []Middleware
 	v := reflect.ValueOf(*c)
 	for i := 0; i < v.NumField(); i++ {

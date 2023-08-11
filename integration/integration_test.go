@@ -232,3 +232,54 @@ services:
 		t.Fatalf("expected auth server to run")
 	}
 }
+
+func TestLoadBalancerRoundRobin(t *testing.T) {
+	fooServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	}))
+	barServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}))
+
+	conf := fmt.Sprintf(`
+services:
+    lb:
+      host: lb.example.com
+      loadBalancer:
+        strategy: roundRobin
+        serviceNames: ["foo", "bar", "invalid"]
+    foo:
+      host: foo.example.com
+      redirect: "%s"
+    bar:
+      host: bar.example.com
+      redirect: "%s"
+    invalid:
+      host: invalid.example.com
+      redirect: "invalid"`, fooServer.URL, barServer.URL)
+
+	i := NewInstance(t, []byte(conf), nil)
+
+	fooRes1 := i.RequestHost("lb.example.com")
+	defer fooRes1.Body.Close()
+	barRes := i.RequestHost("lb.example.com")
+	defer barRes.Body.Close()
+
+	invalidRes := i.RequestHost("lb.example.com")
+	defer invalidRes.Body.Close()
+
+	fooRes2 := i.RequestHost("lb.example.com")
+	defer fooRes2.Body.Close()
+
+	if fooRes1.StatusCode != http.StatusCreated {
+		t.Fatalf("expected status code %d, got %d", http.StatusCreated, fooRes1.StatusCode)
+	}
+
+	if barRes.StatusCode != http.StatusAccepted {
+		t.Fatalf("expected status code %d, got %d", http.StatusAccepted, barRes.StatusCode)
+	}
+
+	if fooRes2.StatusCode != http.StatusCreated {
+		t.Fatalf("expected status code %d, got %d", http.StatusCreated, fooRes2.StatusCode)
+	}
+}
