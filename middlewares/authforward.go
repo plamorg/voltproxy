@@ -45,7 +45,7 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := slog.Default().With(
 			slog.String("host", r.Host),
-			slog.Any("authforward", a))
+			slog.Any("authForward", a))
 
 		// Forward the request to the authentication server.
 		logger.Debug("Forwarding request to authentication server")

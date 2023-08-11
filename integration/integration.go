@@ -29,6 +29,7 @@ type Instance struct {
 
 // NewInstance creates a new instance of the reverse proxy with the given config.
 func NewInstance(t *testing.T, confData []byte, containers []types.Container) *Instance {
+	t.Helper()
 	conf, err := config.Parse(confData)
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +70,8 @@ func (i *Instance) TLSURL() string {
 
 // RequestHost sends a request to the reverse proxy with the given host.
 func (i *Instance) RequestHost(host string) *http.Response {
-	req, err := http.NewRequestWithContext(context.Background(), "GET", i.url, nil)
+	i.t.Helper()
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, i.url, nil)
 	if err != nil {
 		i.t.Fatal(err)
 	}
@@ -79,7 +81,8 @@ func (i *Instance) RequestHost(host string) *http.Response {
 
 // RequestHostTLS sends a request to the reverse proxy with the given host, using TLS.
 func (i *Instance) RequestHostTLS(host string) *http.Response {
-	req, err := http.NewRequestWithContext(context.Background(), "GET", i.tlsURL, nil)
+	i.t.Helper()
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, i.tlsURL, nil)
 	if err != nil {
 		i.t.Fatal(err)
 	}
@@ -89,6 +92,7 @@ func (i *Instance) RequestHostTLS(host string) *http.Response {
 
 // Request sends a request to the reverse proxy.
 func (i *Instance) Request(req *http.Request) *http.Response {
+	i.t.Helper()
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		i.t.Fatal(err)

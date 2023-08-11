@@ -52,19 +52,27 @@ func main() {
 		Cache:      autocert.DirCache("_certs"),
 	}
 
-	slog.Info("Listening...")
+	slog.Info("Listening...", slog.String("readTimeout", conf.ReadTimeout.String()))
 
 	handler := services.Handler()
 	go func() {
-		slog.Error("Error from HTTP server", slog.Any("error", http.ListenAndServe(":http", certManager.HTTPHandler(handler))))
+		server := &http.Server{
+			Addr:        ":http",
+			Handler:     certManager.HTTPHandler(handler),
+			ReadTimeout: conf.ReadTimeout,
+		}
+		slog.Error("Error from HTTP server",
+			slog.Any("error", server.ListenAndServe()),
+		)
 		os.Exit(1)
 	}()
 
 	tlsHandler := services.TLSHandler()
 	tlsServer := &http.Server{
-		Addr:      ":https",
-		TLSConfig: certManager.TLSConfig(),
-		Handler:   tlsHandler,
+		Addr:        ":https",
+		TLSConfig:   certManager.TLSConfig(),
+		Handler:     tlsHandler,
+		ReadTimeout: conf.ReadTimeout,
 	}
 	slog.Error("Error from HTTPS server", slog.Any("error", tlsServer.ListenAndServeTLS("", "")))
 	os.Exit(1)

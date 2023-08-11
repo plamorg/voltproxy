@@ -1,0 +1,22 @@
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+linters:
+  disable-all: true
+  enable:
+    - bodyclose
+    - errcheck
+    - gofumpt
+    - gosec
+    - gosimple
+    - govet
+    - ineffassign
+    - misspell
+    - prealloc
+    - staticcheck
+    - thelper
+    - typecheck
+    - unconvert
+    - unused
+    - usestdlibvars

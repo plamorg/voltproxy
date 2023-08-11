@@ -62,7 +62,7 @@ func TestHandlerSuccess(t *testing.T) {
 	okServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	r := httptest.NewRequest("GET", "http://example.com", nil)
+	r := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	w := httptest.NewRecorder()
 
 	list := List{
@@ -79,7 +79,7 @@ func TestHandlerSuccess(t *testing.T) {
 }
 
 func TestHandlerRedirectToTLS(t *testing.T) {
-	r := httptest.NewRequest("GET", "http://example.com", nil)
+	r := httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 	w := httptest.NewRecorder()
 
 	list := List{
@@ -103,7 +103,7 @@ func TestHandlerRedirectToTLS(t *testing.T) {
 }
 
 func TestTLSHandlerNotFound(t *testing.T) {
-	r := httptest.NewRequest("GET", "https://example.com", nil)
+	r := httptest.NewRequest(http.MethodGet, "https://example.com", nil)
 	w := httptest.NewRecorder()
 
 	list := List{

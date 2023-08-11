@@ -4,6 +4,7 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -26,8 +27,9 @@ type serviceMap map[string]struct {
 
 // Config represents a listing of services to proxy.
 type Config struct {
-	Services serviceMap     `yaml:"services"`
-	Log      logging.Config `yaml:"log"`
+	Services    serviceMap     `yaml:"services"`
+	Log         logging.Config `yaml:"log"`
+	ReadTimeout time.Duration  `yaml:"readTimeout"`
 }
 
 func (s *serviceMap) validate() error {

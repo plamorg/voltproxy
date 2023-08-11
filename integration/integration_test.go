@@ -214,7 +214,7 @@ services:
 
 	i := NewInstance(t, []byte(conf), nil)
 
-	req, err := http.NewRequestWithContext(context.Background(), "GET", i.URL(), nil)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, i.URL(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

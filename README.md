@@ -72,9 +72,11 @@ services:
         - 192.168.1.7
 ```
 
-### Logging Configuration
+### Additional Configuration
 
-You can customize logging to your liking by changing the logger's verbosity (through level) and format (through handler):
+In addition to services, you can also customize voltproxy's logging and timeout behavior.
+
+The default configuration values are as follows:
 
 ```yaml
 # config.yml
@@ -82,8 +84,10 @@ services:
   # ...
 
 log:
-  level: "info" # can be "debug", "info", "warn", or "error".
-  handler: "text" # can be "text" or "json".
+  level: "info" # Can be "debug", "info", "warn", or "error".
+  handler: "text" # Can be "text" or "json".
+
+readTimeout: 0s # No timeout.
 ```
 
 ## 📝 Usage

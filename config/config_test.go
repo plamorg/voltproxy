@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
@@ -207,7 +208,7 @@ services:
 			expectedConfig: nil,
 			err:            errInvalidConfig,
 		},
-		"": {
+		"log configuration": {
 			config: `
 log:
   level: "warn"
@@ -220,6 +221,13 @@ services:
 					Level:   "warn",
 					Handler: "json",
 				},
+			},
+			err: nil,
+		},
+		"read timeout": {
+			config: `readTimeout: 10s`,
+			expectedConfig: &Config{
+				ReadTimeout: 10 * time.Second,
 			},
 			err: nil,
 		},

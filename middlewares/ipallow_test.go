@@ -13,7 +13,7 @@ var okHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 func TestIpAllowedEmptyList(t *testing.T) {
 	ipAllow := NewIPAllow([]string{})
 
-	r := httptest.NewRequest("GET", "/", nil)
+	r := httptest.NewRequest(http.MethodGet, "/", nil)
 	r.RemoteAddr = "172.0.1.0"
 
 	w := httptest.NewRecorder()
@@ -59,7 +59,7 @@ func TestIpAllowHandle(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			r := httptest.NewRequest("GET", "/", nil)
+			r := httptest.NewRequest(http.MethodGet, "/", nil)
 			r.RemoteAddr = test.remoteAddr
 
 			w := httptest.NewRecorder()
