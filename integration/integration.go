@@ -2,6 +2,7 @@
 package integration
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -68,7 +69,7 @@ func (i *Instance) TLSURL() string {
 
 // RequestHost sends a request to the reverse proxy with the given host.
 func (i *Instance) RequestHost(host string) *http.Response {
-	req, err := http.NewRequest("GET", i.url, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", i.url, nil)
 	if err != nil {
 		i.t.Fatal(err)
 	}
@@ -78,7 +79,7 @@ func (i *Instance) RequestHost(host string) *http.Response {
 
 // RequestHostTLS sends a request to the reverse proxy with the given host, using TLS.
 func (i *Instance) RequestHostTLS(host string) *http.Response {
-	req, err := http.NewRequest("GET", i.tlsURL, nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", i.tlsURL, nil)
 	if err != nil {
 		i.t.Fatal(err)
 	}

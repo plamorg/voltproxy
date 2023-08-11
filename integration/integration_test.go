@@ -1,6 +1,7 @@
 package integration
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -22,6 +23,7 @@ services:
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHost("foo.example.com")
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusTeapot {
 		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
@@ -39,6 +41,7 @@ services:
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHostTLS("secure.example.com")
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusTeapot {
 		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
@@ -55,6 +58,7 @@ services:
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHostTLS("notls.example.com")
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected status code %d, got %d", http.StatusNotFound, res.StatusCode)
@@ -79,6 +83,7 @@ services:
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHost("service3.example.com")
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusTeapot {
 		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
@@ -94,7 +99,9 @@ services:
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHost("notfound.example.com")
+	defer res.Body.Close()
 	resTLS := i.RequestHostTLS("notfound.example.com")
+	defer resTLS.Body.Close()
 
 	if res.StatusCode != http.StatusNotFound {
 		t.Fatalf("expected status code %d, got %d", http.StatusNotFound, res.StatusCode)
@@ -117,6 +124,7 @@ services:
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHost("container.example.com")
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusInternalServerError {
 		t.Fatalf("expected status code %d, got %d", http.StatusInternalServerError, res.StatusCode)
@@ -163,6 +171,7 @@ services:
 	i := NewInstance(t, []byte(conf), containers)
 
 	res := i.RequestHost("containerservice.example.com")
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusTeapot {
 		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
@@ -205,7 +214,7 @@ services:
 
 	i := NewInstance(t, []byte(conf), nil)
 
-	req, err := http.NewRequest("GET", i.URL(), nil)
+	req, err := http.NewRequestWithContext(context.Background(), "GET", i.URL(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -213,6 +222,7 @@ services:
 	req.Header.Set("Custom-Header", "test")
 
 	res := i.Request(req)
+	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusForbidden {
 		t.Fatalf("expected status code %d, got %d", http.StatusOK, res.StatusCode)

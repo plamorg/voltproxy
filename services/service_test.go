@@ -89,7 +89,9 @@ func TestHandlerRedirectToTLS(t *testing.T) {
 	// Access a TLS service through HTTP and expect to get redirected to HTTPS.
 	list.Handler().ServeHTTP(w, r)
 
-	location, err := w.Result().Location()
+	res := w.Result()
+	defer res.Body.Close()
+	location, err := res.Location()
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
