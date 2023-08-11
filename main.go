@@ -2,15 +2,40 @@
 package main
 
 import (
+	"crypto/tls"
 	"log/slog"
 	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/crypto/acme/autocert"
 
 	"github.com/plamorg/voltproxy/config"
 	"github.com/plamorg/voltproxy/dockerapi"
 )
+
+func listen(handler http.Handler, timeout time.Duration) {
+	server := &http.Server{
+		Addr:        ":http",
+		Handler:     handler,
+		ReadTimeout: timeout,
+	}
+	slog.Error("Error from HTTP server",
+		slog.Any("error", server.ListenAndServe()),
+	)
+	os.Exit(1)
+}
+
+func listenTLS(handler http.Handler, timeout time.Duration, tlsConfig *tls.Config) {
+	tlsServer := &http.Server{
+		Addr:        ":https",
+		TLSConfig:   tlsConfig,
+		Handler:     handler,
+		ReadTimeout: timeout,
+	}
+	slog.Error("Error from HTTPS server", slog.Any("error", tlsServer.ListenAndServeTLS("", "")))
+	os.Exit(1)
+}
 
 func main() {
 	confBytes, err := os.ReadFile("./config.yml")
@@ -54,26 +79,6 @@ func main() {
 
 	slog.Info("Listening...", slog.String("readTimeout", conf.ReadTimeout.String()))
 
-	handler := services.Handler()
-	go func() {
-		server := &http.Server{
-			Addr:        ":http",
-			Handler:     certManager.HTTPHandler(handler),
-			ReadTimeout: conf.ReadTimeout,
-		}
-		slog.Error("Error from HTTP server",
-			slog.Any("error", server.ListenAndServe()),
-		)
-		os.Exit(1)
-	}()
-
-	tlsHandler := services.TLSHandler()
-	tlsServer := &http.Server{
-		Addr:        ":https",
-		TLSConfig:   certManager.TLSConfig(),
-		Handler:     tlsHandler,
-		ReadTimeout: conf.ReadTimeout,
-	}
-	slog.Error("Error from HTTPS server", slog.Any("error", tlsServer.ListenAndServeTLS("", "")))
-	os.Exit(1)
+	go listen(certManager.HTTPHandler(services.Handler()), conf.ReadTimeout)
+	listenTLS(services.Handler(), conf.ReadTimeout, certManager.TLSConfig())
 }
