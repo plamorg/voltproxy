@@ -357,7 +357,7 @@ func TestConfigServiceList(t *testing.T) {
 					if remote.String() != expectedRemote.String() {
 						t.Errorf("expected remote %s got remote %s", expectedRemote.String(), remote.String())
 					}
-					if err != expectedErr {
+					if !errors.Is(err, expectedErr) {
 						t.Errorf("expected error %v got error %v", expectedErr, err)
 					}
 				}

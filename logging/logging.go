@@ -50,13 +50,13 @@ func (c *Config) Initialize() error {
 	var opts slog.HandlerOptions
 	level, err := levelFromString(c.Level)
 	if err != nil {
-		return fmt.Errorf("%w: %s", errInvalidSettings, err)
+		return fmt.Errorf("%w: %w", errInvalidSettings, err)
 	}
 	opts.Level = level
 
 	handler, err := handlerFromString(c.Handler)
 	if err != nil {
-		return fmt.Errorf("%w: %s", errInvalidSettings, err)
+		return fmt.Errorf("%w: %w", errInvalidSettings, err)
 	}
 	slog.SetDefault(slog.New(handler(&opts)))
 

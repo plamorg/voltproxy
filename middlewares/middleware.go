@@ -12,7 +12,7 @@ type Config struct {
 	AuthForward *AuthForward `yaml:"authForward"`
 }
 
-// List returns a list of middlewares that are not nil,
+// List returns a list of middlewares that are not nil.
 func (c *Config) List() []Middleware {
 	var m []Middleware
 	v := reflect.ValueOf(*c)

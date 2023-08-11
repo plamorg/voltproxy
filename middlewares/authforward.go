@@ -1,7 +1,6 @@
 package middlewares
 
 import (
-	"context"
 	"log/slog"
 	"net"
 	"net/http"
@@ -50,7 +49,7 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 
 		// Forward the request to the authentication server.
 		logger.Debug("Forwarding request to authentication server")
-		authReq, err := http.NewRequestWithContext(context.Background(), http.MethodGet, a.Address, nil)
+		authReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, a.Address, nil)
 		if err != nil {
 			logger.Warn("Failed to create request to authentication server", slog.Any("error", err))
 			w.WriteHeader(http.StatusInternalServerError)
