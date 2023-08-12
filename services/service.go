@@ -86,6 +86,10 @@ func (l *List) findServiceWithHost(host string) (*Service, error) {
 // StartHealthChecks starts the health checks for all services.
 func (l *List) StartHealthChecks() error {
 	for _, service := range *l {
+		// This is a workaround for the loop variable problem.
+		// See: https://github.com/golang/go/wiki/LoopvarExperiment
+		service := service
+
 		if service.Data().Health != nil {
 			w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
 			url, err := service.Remote(w, r)
@@ -93,6 +97,11 @@ func (l *List) StartHealthChecks() error {
 				return err
 			}
 			go service.Data().Health.Launch(url)
+			go func() {
+				for {
+					<-service.Data().Health.c
+				}
+			}()
 		}
 	}
 	return nil

@@ -144,7 +144,5 @@ $ docker compose up -d --force-recreate
 
 ## 🌟 Future Improvements
 
-- Health checking.
-- Failover functionality.
 - Additional selection strategies.
 - More middlewares.
