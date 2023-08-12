@@ -282,3 +282,46 @@ services:
 		t.Fatalf("expected status code %d, got %d", http.StatusCreated, fooRes2.StatusCode)
 	}
 }
+
+func TestLoadBalancerPersistent(t *testing.T) {
+	barServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}))
+
+	conf := fmt.Sprintf(`
+services:
+  lb:
+    host: lb.example.com
+    loadBalancer:
+      persistent: true
+      strategy: roundRobin
+      serviceNames: ["foo", "bar"]
+  foo:
+    redirect: "%s"
+  bar:
+    redirect: "%s"`, TeapotServer.URL, barServer.URL)
+
+	i := NewInstance(t, []byte(conf), nil)
+
+	res1 := i.RequestHost("lb.example.com")
+	defer res1.Body.Close()
+
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, i.URL(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req.Host = "lb.example.com"
+	for _, cookie := range res1.Cookies() {
+		req.AddCookie(cookie)
+	}
+	res2 := i.Request(req)
+	defer res2.Body.Close()
+
+	if res1.StatusCode != http.StatusTeapot {
+		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res1.StatusCode)
+	}
+
+	if res2.StatusCode != http.StatusTeapot {
+		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res2.StatusCode)
+	}
+}

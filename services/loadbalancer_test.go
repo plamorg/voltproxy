@@ -6,17 +6,24 @@ import (
 )
 
 func TestRoundRobin(t *testing.T) {
-	items := []string{"a", "b", "c"}
-	rr := newRoundRobin(items)
-	for _, item := range items {
-		if rr.next() != item {
-			t.Fatalf("expected %s, got %s", item, rr.next())
+	max := uint(3)
+	rr := newRoundRobin(max)
+
+	expected := []uint{0, 1, 2, 0, 1, 2}
+	for i := 0; i < len(expected); i++ {
+		next := rr.next()
+		if next != expected[i] {
+			t.Fatalf("expected %d, got %d", expected[i], next)
 		}
 	}
+}
 
-	// Check that it loops around.
-	if rr.next() != "a" {
-		t.Fatalf("expected %s, got %s", "a", rr.next())
+func TestGenerateCookieName(t *testing.T) {
+	host := "foo.example.com"
+	expected := "fb7746954d615d23"
+	cookieName := generateCookieName(host)
+	if cookieName != expected {
+		t.Fatalf("expected %s, got %s", expected, cookieName)
 	}
 }
 
@@ -35,7 +42,7 @@ func TestNewLoadBalancerDefaultRoundRobin(t *testing.T) {
 		t.Fatalf("expected strategy to be set")
 	}
 
-	if _, ok := lb.strategy.(*roundRobin[Service]); !ok {
+	if _, ok := lb.strategy.(*roundRobin); !ok {
 		t.Fatalf("expected strategy to be a round robin")
 	}
 }

@@ -3,6 +3,7 @@ package services
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"net/url"
 
 	"github.com/plamorg/voltproxy/dockerapi"
@@ -44,7 +45,7 @@ func (c *Container) Data() Data {
 }
 
 // Remote iterates through the list of containers and returns the remote of the matching container by name.
-func (c *Container) Remote() (*url.URL, error) {
+func (c *Container) Remote(_ http.ResponseWriter, _ *http.Request) (*url.URL, error) {
 	containers, err := (*c.docker).ContainerList()
 	if err != nil {
 		return nil, err

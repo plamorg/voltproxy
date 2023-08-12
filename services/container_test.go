@@ -33,7 +33,7 @@ func TestContainerRemoteSuccess(t *testing.T) {
 
 	expectedRemote := "http://127.0.0.1:1234"
 
-	remote, err := container.Remote()
+	remote, err := container.Remote(nil, nil)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -71,7 +71,7 @@ func TestContainerRemoteNotInNetwork(t *testing.T) {
 		Port:    25565,
 	})
 
-	_, err := container.Remote()
+	_, err := container.Remote(nil, nil)
 
 	if !errors.Is(err, ErrContainerNotInNetwork) {
 		t.Errorf("expected error %v, got %v", ErrContainerNotInNetwork, err)
@@ -110,7 +110,7 @@ func TestContainerRemoteNoMatchingContainer(t *testing.T) {
 		Port:    4321,
 	})
 
-	_, err := container.Remote()
+	_, err := container.Remote(nil, nil)
 
 	if !errors.Is(err, ErrNoMatchingContainer) {
 		t.Errorf("expected error %v, got %v", ErrContainerNotInNetwork, err)
@@ -132,7 +132,7 @@ func TestContainerRemoteBadAdapter(t *testing.T) {
 		Port:    4321,
 	})
 
-	_, err := container.Remote()
+	_, err := container.Remote(nil, nil)
 
 	if !errors.Is(err, errBadAdapter) {
 		t.Errorf("expected error %v, got %v", errBadAdapter, err)

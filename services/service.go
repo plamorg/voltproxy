@@ -38,12 +38,14 @@ func (s *Services) Validate() bool {
 // errNoServiceFound is returned when no service with the host is found.
 var errNoServiceFound = fmt.Errorf("no service with host")
 
+// Data is the data required to create a service.
 type Data struct {
 	Host        string
 	TLS         bool
 	Middlewares []middlewares.Middleware
 }
 
+// NewData creates a new service Data by calling the middlewares List method.
 func NewData(host string, tls bool, m *middlewares.Middlewares) Data {
 	var l []middlewares.Middleware
 	if m != nil {
@@ -56,9 +58,10 @@ func NewData(host string, tls bool, m *middlewares.Middlewares) Data {
 	}
 }
 
+// Service is an interface describing an arbitrary service that can be proxied.
 type Service interface {
 	Data() Data
-	Remote() (*url.URL, error)
+	Remote(http.ResponseWriter, *http.Request) (*url.URL, error)
 }
 
 // List is a list of services which can be used to proxy requests (http.Request).
@@ -107,7 +110,7 @@ func (l *List) handler(tls bool) http.Handler {
 			return
 		}
 
-		remote, err := (*service).Remote()
+		remote, err := (*service).Remote(w, r)
 		if err != nil {
 			logger.Warn("Error while getting remote URL", slog.Any("error", err))
 			w.WriteHeader(http.StatusInternalServerError)

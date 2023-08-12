@@ -1,6 +1,9 @@
 package services
 
-import "net/url"
+import (
+	"net/http"
+	"net/url"
+)
 
 // Redirect is a service that redirects to a remote URL.
 type Redirect struct {
@@ -23,6 +26,6 @@ func (r *Redirect) Data() Data {
 }
 
 // Remote returns the remote URL of the Redirect service.
-func (r *Redirect) Remote() (*url.URL, error) {
+func (r *Redirect) Remote(_ http.ResponseWriter, _ *http.Request) (*url.URL, error) {
 	return url.Parse(r.remote)
 }
