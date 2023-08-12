@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"reflect"
@@ -43,18 +44,24 @@ type Data struct {
 	Host        string
 	TLS         bool
 	Middlewares []middlewares.Middleware
+	Health      *Health
 }
 
-// NewData creates a new service Data by calling the middlewares List method.
-func NewData(host string, tls bool, m *middlewares.Middlewares) Data {
+// NewData constructs a Data.
+func NewData(host string, tls bool, m *middlewares.Middlewares, h *HealthInfo) Data {
 	var l []middlewares.Middleware
 	if m != nil {
 		l = m.List()
+	}
+	var health *Health
+	if h != nil {
+		health = NewHealth(*h)
 	}
 	return Data{
 		Host:        host,
 		TLS:         tls,
 		Middlewares: l,
+		Health:      health,
 	}
 }
 
@@ -74,6 +81,21 @@ func (l *List) findServiceWithHost(host string) (*Service, error) {
 		}
 	}
 	return nil, fmt.Errorf("%w: %s", errNoServiceFound, host)
+}
+
+// StartHealthChecks starts the health checks for all services.
+func (l *List) StartHealthChecks() error {
+	for _, service := range *l {
+		if service.Data().Health != nil {
+			w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
+			url, err := service.Remote(w, r)
+			if err != nil {
+				return err
+			}
+			go service.Data().Health.Launch(url)
+		}
+	}
+	return nil
 }
 
 // Handler returns a http.Handler that proxies requests to services, redirecting to TLS if applicable.

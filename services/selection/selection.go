@@ -2,15 +2,7 @@
 package selection
 
 import (
-	"fmt"
 	"math/rand"
-)
-
-var (
-	// ErrInvalidStrategy is returned when an unexpected strategy string is specified.
-	ErrInvalidStrategy = fmt.Errorf("invalid strategy")
-	// ErrNoServicesSpecified is returned when the number of services is zero.
-	ErrNoServicesSpecified = fmt.Errorf("no services specified")
 )
 
 // Strategy defines the interface for a load balancer selection strategy.
@@ -21,17 +13,14 @@ type Strategy interface {
 
 // NewStrategy creates a new Strategy based on the specified strategy string.
 // If an empty string is specified, the default strategy (RoundRobin) is used.
-func NewStrategy(strategy string, max uint) (Strategy, error) {
-	if max == 0 {
-		return nil, ErrNoServicesSpecified
-	}
+func NewStrategy(strategy string, max uint) Strategy {
 	switch strategy {
 	case "roundRobin", "":
-		return NewRoundRobin(max), nil
+		return NewRoundRobin(max)
 	case "random":
-		return NewRandom(max), nil
+		return NewRandom(max)
 	default:
-		return nil, fmt.Errorf("%w: %s", ErrInvalidStrategy, strategy)
+		return nil
 	}
 }
 

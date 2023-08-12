@@ -20,7 +20,8 @@ type HealthInfo struct {
 type Health struct {
 	HealthInfo
 
-	c chan bool
+	c  chan bool
+	up bool
 }
 
 // NewHealth creates a new Health.
@@ -28,7 +29,13 @@ func NewHealth(info HealthInfo) *Health {
 	return &Health{
 		HealthInfo: info,
 		c:          make(chan bool),
+		up:         true,
 	}
+}
+
+// Up returns the current health status.
+func (h *Health) Up() bool {
+	return h.up
 }
 
 func constructHealthRemote(remote *url.URL, path string, tls bool) *url.URL {
@@ -55,16 +62,13 @@ func (h *Health) Launch(serviceRemote *url.URL) {
 		up, err := h.check(remote)
 		if err != nil {
 			logger.Warn("Health check failed", slog.Any("error", err))
-			h.c <- false
+			h.up = false
 		} else {
-			h.c <- up
+			logger.Debug("Health check", slog.Bool("up", up), slog.Any("error", err))
+			h.up = up
 		}
+		h.c <- h.up
 	}
-}
-
-// C returns a channel that receives true if the service is up.
-func (h *Health) C() <-chan bool {
-	return h.c
 }
 
 func (h *Health) check(remote *url.URL) (bool, error) {

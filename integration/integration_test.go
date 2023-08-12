@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/network"
@@ -323,5 +324,43 @@ services:
 
 	if res2.StatusCode != http.StatusTeapot {
 		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res2.StatusCode)
+	}
+}
+
+func TestLoadBalancerHealth(t *testing.T) {
+	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	conf := fmt.Sprintf(`
+services:
+  lb:
+    host: lb.example.com
+    loadBalancer:
+      strategy: roundRobin
+      serviceNames: ["down", "up"]
+  down:
+    redirect: "%s"
+    health:
+      path: "/health"
+      interval: 0.5ms
+  up:
+    redirect: "%s"`, down.URL, TeapotServer.URL)
+
+	i := NewInstance(t, []byte(conf), nil)
+
+	ticker := time.NewTicker(2 * time.Millisecond)
+	defer ticker.Stop()
+	<-ticker.C
+
+	res := i.RequestHost("lb.example.com")
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusTeapot {
+		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
 	}
 }

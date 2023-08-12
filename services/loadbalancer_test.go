@@ -45,7 +45,7 @@ func TestNewLoadBalancerError(t *testing.T) {
 		"no services": {
 			services:    []Service{},
 			info:        LoadBalancerInfo{},
-			expectedErr: selection.ErrNoServicesSpecified,
+			expectedErr: errNoServicesSpecified,
 		},
 		"invalid strategy": {
 			services: []Service{nil},
@@ -53,7 +53,7 @@ func TestNewLoadBalancerError(t *testing.T) {
 				Strategy:     "invalid",
 				ServiceNames: []string{"foo"},
 			},
-			expectedErr: selection.ErrInvalidStrategy,
+			expectedErr: errInvalidStrategy,
 		},
 	}
 

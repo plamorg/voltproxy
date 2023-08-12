@@ -25,6 +25,7 @@ type serviceMap map[string]struct {
 	Host        string                   `yaml:"host"`
 	TLS         bool                     `yaml:"tls"`
 	Middlewares *middlewares.Middlewares `yaml:"middlewares"`
+	Health      *services.HealthInfo     `yaml:"health"`
 
 	services.Services `yaml:",inline"`
 }
@@ -78,7 +79,7 @@ func Parse(data []byte) (*Config, error) {
 func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
 	m := make(map[string]services.Service)
 	for name, service := range c.Services {
-		data := services.NewData(service.Host, service.TLS, service.Middlewares)
+		data := services.NewData(service.Host, service.TLS, service.Middlewares, service.Health)
 		if service.Container != nil {
 			m[name] = services.NewContainer(data, docker, *service.Container)
 		} else if service.Redirect != "" {
@@ -96,7 +97,7 @@ func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
 					return nil, fmt.Errorf("%w: %s: %w %s", errInvalidConfig, name, errNoServiceWithName, serviceName)
 				}
 			}
-			data := services.NewData(service.Host, service.TLS, service.Middlewares)
+			data := services.NewData(service.Host, service.TLS, service.Middlewares, service.Health)
 			lb, err := services.NewLoadBalancer(data, lbServices, *service.LoadBalancer)
 			if err != nil {
 				return nil, fmt.Errorf("%w: %s: %w", errInvalidConfig, name, err)

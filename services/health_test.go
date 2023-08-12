@@ -95,7 +95,7 @@ func TestHealthLaunchBadMethod(t *testing.T) {
 
 	go health.Launch(&remote)
 
-	up := <-health.C()
+	up := <-health.c
 	if up {
 		t.Errorf("expected false, got %v", up)
 	}
@@ -112,7 +112,7 @@ func TestHealthLaunchBadRequest(t *testing.T) {
 
 	go health.Launch(&remote)
 
-	up := <-health.C()
+	up := <-health.c
 	if up {
 		t.Errorf("expected false, got %v", up)
 	}
@@ -159,7 +159,7 @@ func TestHealthLaunch(t *testing.T) {
 			results := make([]bool, 0)
 
 			for {
-				up := <-health.C()
+				up := <-health.c
 				results = append(results, up)
 				if len(results) == len(test.expected) {
 					break

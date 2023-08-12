@@ -17,6 +17,13 @@ const (
 	lbCookieBitSize    = 64
 )
 
+var (
+	// ErrInvalidStrategy is returned when an unexpected strategy string is specified.
+	errInvalidStrategy = fmt.Errorf("invalid strategy")
+	// ErrNoServicesSpecified is returned when the number of services is zero.
+	errNoServicesSpecified = fmt.Errorf("no services specified")
+)
+
 // LoadBalancerInfo is the information needed to create a load balancer.
 type LoadBalancerInfo struct {
 	Strategy string `yaml:"strategy"`
@@ -48,9 +55,12 @@ func generateCookieName(host string) string {
 
 // NewLoadBalancer creates a new load balancer service.
 func NewLoadBalancer(data Data, services []Service, info LoadBalancerInfo) (*LoadBalancer, error) {
-	s, err := selection.NewStrategy(info.Strategy, uint(len(services)))
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", data.Host, err)
+	if len(services) == 0 {
+		return nil, errNoServicesSpecified
+	}
+	s := selection.NewStrategy(info.Strategy, uint(len(services)))
+	if s == nil {
+		return nil, errInvalidStrategy
 	}
 	return &LoadBalancer{
 		data:       data,
@@ -66,14 +76,26 @@ func (l *LoadBalancer) Data() Data {
 	return l.data
 }
 
-func (l *LoadBalancer) persistentRemote(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
+func (l *LoadBalancer) nextServer() uint {
+	next := l.strategy.Select()
+	poolSize := len(l.services)
+	for poolSize > 1 && l.services[next].Data().Health != nil && !l.services[next].Data().Health.Up() {
+		l.services[next], l.services[poolSize-1] = l.services[poolSize-1], l.services[next]
+		poolSize--
+		strategy := selection.NewStrategy(l.info.Strategy, uint(poolSize))
+		next = strategy.Select()
+	}
+	return next
+}
+
+func (l *LoadBalancer) persistentService(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
 	if cookie, err := r.Cookie(l.cookieName); err == nil {
 		cookieNext, err := strconv.ParseUint(cookie.Value, lbCookieBase, lbCookieBitSize)
-		if err == nil {
+		if err == nil && (l.services[cookieNext].Data().Health == nil || l.services[cookieNext].Data().Health.Up()) {
 			return l.services[cookieNext].Remote(w, r)
 		}
 	}
-	next := l.strategy.Select()
+	next := l.nextServer()
 	cookie := &http.Cookie{
 		Name:     l.cookieName,
 		Value:    fmt.Sprint(next),
@@ -86,8 +108,8 @@ func (l *LoadBalancer) persistentRemote(w http.ResponseWriter, r *http.Request) 
 // Remote returns the remote URL of the next service in the load balancer.
 func (l *LoadBalancer) Remote(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
 	if l.info.Persistent {
-		return l.persistentRemote(w, r)
+		return l.persistentService(w, r)
 	}
-	next := l.strategy.Select()
+	next := l.nextServer()
 	return l.services[next].Remote(w, r)
 }
