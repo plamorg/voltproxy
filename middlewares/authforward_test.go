@@ -54,8 +54,10 @@ func TestAuthForwardHandle(t *testing.T) {
 }
 
 func TestAuthForwardHandleRequestHeaders(t *testing.T) {
+	const testValue = "test"
+
 	verifyingAuthServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("Test-Header") != "test" {
+		if r.Header.Get("Test-Header") != testValue {
 			t.Errorf("test header was not forwarded")
 		}
 		if r.Header.Get("Not-Forwarded") != "" {
@@ -73,7 +75,7 @@ func TestAuthForwardHandleRequestHeaders(t *testing.T) {
 	handler := a.Handle(teapotHandler)
 
 	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
-	r.Header.Set("Test-Header", "test")
+	r.Header.Set("Test-Header", testValue)
 	r.Header.Set("Not-Forwarded", "do not forward")
 	handler.ServeHTTP(w, r)
 

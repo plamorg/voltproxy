@@ -6,18 +6,28 @@ linters:
   disable-all: true
   enable:
     - bodyclose
+    - errcheck
     - errname
     - errorlint
-    - errcheck
     - exhaustive
+    - goconst
     - gofumpt
+    - gomnd
     - gosec
     - gosimple
     - govet
+    - importas
     - ineffassign
+    - lll
     - misspell
+    - musttag
+    - nosprintfhostport
     - prealloc
+    - predeclared
+    - reassign
+    - revive
     - staticcheck
+    - tagliatelle
     - thelper
     - typecheck
     - unconvert

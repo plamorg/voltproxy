@@ -38,33 +38,26 @@ func (s *Services) Validate() bool {
 // errNoServiceFound is returned when no service with the host is found.
 var errNoServiceFound = fmt.Errorf("no service with host")
 
-// Config describes the user defined configuration for a service.
-type Config struct {
-	Host        string                   `yaml:"host"`
-	TLS         bool                     `yaml:"tls"`
-	Middlewares *middlewares.Middlewares `yaml:"middlewares"`
+type Data struct {
+	Host        string
+	TLS         bool
+	Middlewares []middlewares.Middleware
 }
 
-func (c *Config) data() data {
-	var middlewares []middlewares.Middleware
-	if c.Middlewares != nil {
-		middlewares = c.Middlewares.List()
+func NewData(host string, tls bool, m *middlewares.Middlewares) Data {
+	var l []middlewares.Middleware
+	if m != nil {
+		l = m.List()
 	}
-	return data{
-		host:        c.Host,
-		tls:         c.TLS,
-		middlewares: middlewares,
+	return Data{
+		Host:        host,
+		TLS:         tls,
+		Middlewares: l,
 	}
-}
-
-type data struct {
-	host        string
-	tls         bool
-	middlewares []middlewares.Middleware
 }
 
 type Service interface {
-	Data() data
+	Data() Data
 	Remote() (*url.URL, error)
 }
 
@@ -73,7 +66,7 @@ type List []Service
 
 func (l *List) findServiceWithHost(host string) (*Service, error) {
 	for _, service := range *l {
-		if service.Data().host == host {
+		if service.Data().Host == host {
 			return &service, nil
 		}
 	}
@@ -102,13 +95,13 @@ func (l *List) handler(tls bool) http.Handler {
 			return
 		}
 
-		if (*service).Data().tls && !tls {
+		if (*service).Data().TLS && !tls {
 			redirectURL := "https://" + r.Host + r.URL.String()
 			logger.Debug("Redirecting to TLS server", slog.String("redirect", redirectURL))
 			http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
 			return
 		}
-		if !(*service).Data().tls && tls {
+		if !(*service).Data().TLS && tls {
 			logger.Debug("Service does not support TLS")
 			w.WriteHeader(http.StatusNotFound)
 			return
@@ -128,7 +121,7 @@ func (l *List) handler(tls bool) http.Handler {
 			proxy.ServeHTTP(w, r)
 		})
 
-		middlewares := (*service).Data().middlewares
+		middlewares := (*service).Data().Middlewares
 		if len(middlewares) > 0 {
 			slog.Debug("Adding middlewares", slog.Int("count", len(middlewares)))
 			for _, middleware := range middlewares {

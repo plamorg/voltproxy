@@ -4,21 +4,21 @@ import "net/url"
 
 // Redirect is a service that redirects to a remote URL.
 type Redirect struct {
-	data
+	data Data
 
 	remote string
 }
 
 // NewRedirect creates a new Redirect service.
-func NewRedirect(config Config, remote string) *Redirect {
+func NewRedirect(data Data, remote string) *Redirect {
 	return &Redirect{
-		data:   config.data(),
+		data:   data,
 		remote: remote,
 	}
 }
 
 // Data returns the data of the Redirect service.
-func (r *Redirect) Data() data {
+func (r *Redirect) Data() Data {
 	return r.data
 }
 

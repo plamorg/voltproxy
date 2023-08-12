@@ -26,7 +26,7 @@ func TestNewLoadBalancerDefaultRoundRobin(t *testing.T) {
 		ServiceNames: []string{"foo"},
 	}
 
-	lb, err := NewLoadBalancer(Config{}, services, info)
+	lb, err := NewLoadBalancer(Data{}, services, info)
 	if err != nil {
 		t.Fatalf("expected no error, got %v", err)
 	}
@@ -63,7 +63,7 @@ func TestNewLoadBalancerError(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			_, err := NewLoadBalancer(Config{}, test.services, test.info)
+			_, err := NewLoadBalancer(Data{}, test.services, test.info)
 			if !errors.Is(err, test.expectedErr) {
 				t.Fatalf("expected error %v, got %v", test.expectedErr, err)
 			}

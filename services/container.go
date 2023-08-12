@@ -2,6 +2,7 @@ package services
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 
 	"github.com/plamorg/voltproxy/dockerapi"
@@ -22,23 +23,23 @@ type ContainerInfo struct {
 
 // Container is a service that is running in a Docker container.
 type Container struct {
-	data
+	data Data
 
 	docker *dockerapi.Adapter
 	info   ContainerInfo
 }
 
 // NewContainer creates a new service from a docker container.
-func NewContainer(config Config, docker dockerapi.Adapter, info ContainerInfo) *Container {
+func NewContainer(data Data, docker dockerapi.Adapter, info ContainerInfo) *Container {
 	return &Container{
-		data:   config.data(),
+		data:   data,
 		docker: &docker,
 		info:   info,
 	}
 }
 
 // Data returns the data of the Container service.
-func (c *Container) Data() data {
+func (c *Container) Data() Data {
 	return c.data
 }
 
@@ -52,7 +53,8 @@ func (c *Container) Remote() (*url.URL, error) {
 		for _, n := range container.Names {
 			if n == c.info.Name {
 				if endpoint, ok := container.NetworkSettings.Networks[c.info.Network]; ok {
-					return url.Parse(fmt.Sprintf("http://%s:%d", endpoint.IPAddress, c.info.Port))
+					rawURL := fmt.Sprintf("http://%s", net.JoinHostPort(endpoint.IPAddress, fmt.Sprint(c.info.Port)))
+					return url.Parse(rawURL)
 				}
 				return nil, fmt.Errorf("%s: %w %s", c.info.Name, ErrContainerNotInNetwork, c.info.Network)
 			}

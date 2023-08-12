@@ -27,7 +27,7 @@ func TestServiceMapValidate(t *testing.T) {
 		"service with address": {
 			serviceMap{
 				"a": {
-					Config:   services.Config{Host: "b"},
+					Host:     "b",
 					Services: services.Services{Redirect: "c"},
 				},
 			},
@@ -36,7 +36,7 @@ func TestServiceMapValidate(t *testing.T) {
 		"service with container": {
 			serviceMap{
 				"a": {
-					Config:   services.Config{Host: "b"},
+					Host:     "b",
 					Services: services.Services{Container: &services.ContainerInfo{Name: "c", Network: "d", Port: 0}},
 				},
 			},
@@ -45,7 +45,7 @@ func TestServiceMapValidate(t *testing.T) {
 		"service with TLS": {
 			serviceMap{
 				"secure": {
-					Config:   services.Config{Host: "a", TLS: true},
+					Host: "a", TLS: true,
 					Services: services.Services{Redirect: "b"},
 				},
 			},
@@ -54,11 +54,9 @@ func TestServiceMapValidate(t *testing.T) {
 		"service with middleware": {
 			serviceMap{
 				"mid": {
-					Config: services.Config{
-						Host: "host",
-						Middlewares: &middlewares.Middlewares{
-							IPAllow: middlewares.NewIPAllow([]string{"172.20.0.1"}),
-						},
+					Host: "host",
+					Middlewares: &middlewares.Middlewares{
+						IPAllow: middlewares.NewIPAllow([]string{"172.20.0.1"}),
 					},
 					Services: services.Services{Redirect: "https://example.com"},
 				},
@@ -66,13 +64,13 @@ func TestServiceMapValidate(t *testing.T) {
 			nil,
 		},
 		"service with no container/address": {
-			serviceMap{"bad": {Config: services.Config{Host: "b"}}},
+			serviceMap{"bad": {Host: "b"}},
 			errMustHaveOneService,
 		},
 		"service with both container and address": {
 			serviceMap{
 				"invalid": {
-					Config: services.Config{Host: "b"},
+					Host: "b",
 					Services: services.Services{
 						Redirect:  "c",
 						Container: &services.ContainerInfo{Name: "d", Network: "e", Port: 1},
@@ -84,11 +82,11 @@ func TestServiceMapValidate(t *testing.T) {
 		"services with duplicate host": {
 			serviceMap{
 				"a": {
-					Config:   services.Config{Host: "b"},
+					Host:     "b",
 					Services: services.Services{Redirect: "c"},
 				},
 				"d": {
-					Config:   services.Config{Host: "b"},
+					Host:     "b",
 					Services: services.Services{Redirect: "c"},
 				},
 			},
@@ -97,19 +95,17 @@ func TestServiceMapValidate(t *testing.T) {
 		"ignore duplicate host if host is empty string": {
 			serviceMap{
 				"empty1": {
-					Config:   services.Config{Host: ""},
+					Host:     "",
 					Services: services.Services{Redirect: "c"},
 				},
 				"empty2": {
-					Config:   services.Config{Host: ""},
+					Host:     "",
 					Services: services.Services{Redirect: "c"},
 				},
 				"undefined1": {
-					Config:   services.Config{},
 					Services: services.Services{Redirect: "c"},
 				},
 				"undefined2": {
-					Config:   services.Config{},
 					Services: services.Services{Redirect: "c"},
 				},
 			},
@@ -162,10 +158,8 @@ services:
 			expectedConfig: &Config{
 				Services: serviceMap{
 					"example": {
-						Config: services.Config{
-							Host: "host.example.com",
-							TLS:  false,
-						},
+						Host:     "host.example.com",
+						TLS:      false,
 						Services: services.Services{Redirect: "https://example.com"},
 					},
 				},
@@ -189,19 +183,15 @@ services:
 			expectedConfig: &Config{
 				Services: serviceMap{
 					"a": {
-						Config: services.Config{
-							Host: "ahost",
-							TLS:  false,
-						},
+						Host: "ahost",
+						TLS:  false,
 						Services: services.Services{
 							Container: &services.ContainerInfo{Name: "test", Network: "net", Port: 1234},
 						},
 					},
 					"b": {
-						Config: services.Config{
-							Host: "bhost",
-							TLS:  true,
-						},
+						Host: "bhost",
+						TLS:  true,
 						Services: services.Services{
 							Redirect: "https://b.example.com",
 						},
@@ -302,16 +292,14 @@ services:
 	expectedConfig := &Config{
 		Services: serviceMap{
 			"service1": {
-				Config: services.Config{
-					Host: "service1.example.com",
-					Middlewares: &middlewares.Middlewares{
-						IPAllow: middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
-						AuthForward: &middlewares.AuthForward{
-							Address:         "https://auth.example.com",
-							XForwarded:      true,
-							RequestHeaders:  []string{},
-							ResponseHeaders: []string{"X-Auth-Response-Header"},
-						},
+				Host: "service1.example.com",
+				Middlewares: &middlewares.Middlewares{
+					IPAllow: middlewares.NewIPAllow([]string{"127.0.0.1", "192.168.1.7"}),
+					AuthForward: &middlewares.AuthForward{
+						Address:         "https://auth.example.com",
+						XForwarded:      true,
+						RequestHeaders:  []string{},
+						ResponseHeaders: []string{"X-Auth-Response-Header"},
 					},
 				},
 				Services: services.Services{Redirect: "https://invalid.example.com"},
@@ -344,15 +332,13 @@ func TestConfigServiceList(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Config: services.Config{
-							Host: "a",
-						},
+						Host:     "a",
 						Services: services.Services{Redirect: "b"},
 					},
 				},
 			},
 			services.List{
-				services.NewRedirect(services.Config{Host: "a"}, "b"),
+				services.NewRedirect(services.Data{Host: "a"}, "b"),
 			},
 			nil,
 		},
@@ -360,22 +346,18 @@ func TestConfigServiceList(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Config: services.Config{
-							Host: "a",
-							Middlewares: &middlewares.Middlewares{
-								IPAllow: middlewares.NewIPAllow(nil),
-							},
+						Host: "a",
+						Middlewares: &middlewares.Middlewares{
+							IPAllow: middlewares.NewIPAllow(nil),
 						},
 						Services: services.Services{Redirect: "b"},
 					},
 				},
 			},
 			services.List{
-				services.NewRedirect(services.Config{
-					Host: "a",
-					Middlewares: &middlewares.Middlewares{
-						IPAllow: middlewares.NewIPAllow(nil),
-					},
+				services.NewRedirect(services.Data{
+					Host:        "a",
+					Middlewares: []middlewares.Middleware{middlewares.NewIPAllow(nil)},
 				}, "b"),
 			},
 			nil,
@@ -414,7 +396,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	conf := Config{
 		Services: serviceMap{
 			"a": {
-				Config: services.Config{Host: "a"},
+				Host: "a",
 				Services: services.Services{
 					Container: &services.ContainerInfo{
 						Name:    "b",
@@ -427,7 +409,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	}
 
 	expectedServices := services.List{
-		services.NewContainer(services.Config{Host: "a"}, adapter, services.ContainerInfo{
+		services.NewContainer(services.Data{Host: "a"}, adapter, services.ContainerInfo{
 			Name:    "b",
 			Network: "c",
 			Port:    1234,
@@ -470,7 +452,7 @@ func TestConfigServiceListLoadBalancerError(t *testing.T) {
 			conf := Config{
 				Services: serviceMap{
 					"lb": {
-						Config: services.Config{Host: "a"},
+						Host: "a",
 						Services: services.Services{
 							LoadBalancer: &test.lbInfo,
 						},
@@ -500,7 +482,7 @@ func TestConfigTLSHosts(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Config: services.Config{Host: "a"},
+						Host: "a",
 					},
 				},
 			},
@@ -510,10 +492,8 @@ func TestConfigTLSHosts(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Config: services.Config{
-							Host: "a",
-							TLS:  true,
-						},
+						Host: "a",
+						TLS:  true,
 					},
 				},
 			},
@@ -523,19 +503,15 @@ func TestConfigTLSHosts(t *testing.T) {
 			Config{
 				Services: serviceMap{
 					"a": {
-						Config: services.Config{Host: "a"},
+						Host: "a",
 					},
 					"b": {
-						Config: services.Config{
-							Host: "b",
-							TLS:  true,
-						},
+						Host: "b",
+						TLS:  true,
 					},
 					"c": {
-						Config: services.Config{
-							Host: "c",
-							TLS:  true,
-						},
+						Host: "c",
+						TLS:  true,
 					},
 				},
 			},

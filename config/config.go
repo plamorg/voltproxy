@@ -10,6 +10,7 @@ import (
 
 	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/logging"
+	"github.com/plamorg/voltproxy/middlewares"
 	"github.com/plamorg/voltproxy/services"
 )
 
@@ -21,7 +22,9 @@ var (
 )
 
 type serviceMap map[string]struct {
-	services.Config `yaml:",inline"`
+	Host        string                   `yaml:"host"`
+	TLS         bool                     `yaml:"tls"`
+	Middlewares *middlewares.Middlewares `yaml:"middlewares"`
 
 	services.Services `yaml:",inline"`
 }
@@ -75,10 +78,11 @@ func Parse(data []byte) (*Config, error) {
 func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
 	m := make(map[string]services.Service)
 	for name, service := range c.Services {
+		data := services.NewData(service.Host, service.TLS, service.Middlewares)
 		if service.Container != nil {
-			m[name] = services.NewContainer(service.Config, docker, *service.Container)
+			m[name] = services.NewContainer(data, docker, *service.Container)
 		} else if service.Redirect != "" {
-			m[name] = services.NewRedirect(service.Config, service.Redirect)
+			m[name] = services.NewRedirect(data, service.Redirect)
 		}
 	}
 
@@ -92,7 +96,8 @@ func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
 					return nil, fmt.Errorf("%w: %s: %w %s", errInvalidConfig, name, errNoServiceWithName, serviceName)
 				}
 			}
-			lb, err := services.NewLoadBalancer(service.Config, lbServices, *service.LoadBalancer)
+			data := services.NewData(service.Host, service.TLS, service.Middlewares)
+			lb, err := services.NewLoadBalancer(data, lbServices, *service.LoadBalancer)
 			if err != nil {
 				return nil, fmt.Errorf("%w: %s: %w", errInvalidConfig, name, err)
 			}

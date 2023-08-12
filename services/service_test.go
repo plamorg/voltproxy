@@ -22,7 +22,7 @@ func TestFindServiceWithHostFailure(t *testing.T) {
 		},
 		"not found": {
 			list: List{
-				NewRedirect(Config{Host: "sub.example.com"}, "https://example.com"),
+				NewRedirect(Data{Host: "sub.example.com"}, "https://example.com"),
 			},
 			host:          "example.com",
 			expectedError: errNoServiceFound,
@@ -40,12 +40,12 @@ func TestFindServiceWithHostFailure(t *testing.T) {
 }
 
 func TestFindServiceWithHostSuccess(t *testing.T) {
-	expectedService := NewRedirect(Config{Host: "example.com"}, "https://example.com")
+	expectedService := NewRedirect(Data{Host: "example.com"}, "https://example.com")
 
 	list := List{
-		NewRedirect(Config{Host: "foo.example.com"}, "https://example.com"),
+		NewRedirect(Data{Host: "foo.example.com"}, "https://example.com"),
 		expectedService,
-		NewRedirect(Config{Host: "bar.example.com"}, "https://foo.example.com"),
+		NewRedirect(Data{Host: "bar.example.com"}, "https://foo.example.com"),
 	}
 
 	service, err := list.findServiceWithHost("example.com")
@@ -66,8 +66,8 @@ func TestHandlerSuccess(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	list := List{
-		NewRedirect(Config{Host: "sub.example.com"}, "https://bar.example.com"),
-		NewRedirect(Config{Host: "example.com"}, okServer.URL),
+		NewRedirect(Data{Host: "sub.example.com"}, "https://bar.example.com"),
+		NewRedirect(Data{Host: "example.com"}, okServer.URL),
 	}
 
 	expectedHost := strings.Split(okServer.URL, "://")[1]
@@ -83,7 +83,7 @@ func TestHandlerRedirectToTLS(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	list := List{
-		NewRedirect(Config{Host: "example.com", TLS: true}, "https://bar.example.com"),
+		NewRedirect(Data{Host: "example.com", TLS: true}, "https://bar.example.com"),
 	}
 
 	// Access a TLS service through HTTP and expect to get redirected to HTTPS.
@@ -107,7 +107,7 @@ func TestTLSHandlerNotFound(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	list := List{
-		NewRedirect(Config{Host: "example.com", TLS: false}, "https://baz.example.com"),
+		NewRedirect(Data{Host: "example.com", TLS: false}, "https://baz.example.com"),
 	}
 
 	// Try access a service through HTTPS when it is specified as non TLS.

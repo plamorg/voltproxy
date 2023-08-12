@@ -40,30 +40,30 @@ type LoadBalancerInfo struct {
 }
 
 type LoadBalancer struct {
-	data
+	data Data
 
 	strategy loadBalancerStrategy
 }
 
 // NewLoadBalancer creates a new load balancer service.
-func NewLoadBalancer(config Config, services []Service, info LoadBalancerInfo) (*LoadBalancer, error) {
+func NewLoadBalancer(data Data, services []Service, info LoadBalancerInfo) (*LoadBalancer, error) {
 	if len(services) == 0 {
-		return nil, fmt.Errorf("%s: %w", config.Host, errNoServicesSpecified)
+		return nil, fmt.Errorf("%s: %w", data.Host, errNoServicesSpecified)
 	}
 	var s loadBalancerStrategy
 	switch info.Strategy {
 	case "roundRobin", "":
 		s = newRoundRobin(services)
 	default:
-		return nil, fmt.Errorf("%s: %w %s", config.Host, errInvalidLoadBalancerStrategy, info.Strategy)
+		return nil, fmt.Errorf("%s: %w %s", data.Host, errInvalidLoadBalancerStrategy, info.Strategy)
 	}
 	return &LoadBalancer{
-		data:     config.data(),
+		data:     data,
 		strategy: s,
 	}, nil
 }
 
-func (l *LoadBalancer) Data() data {
+func (l *LoadBalancer) Data() Data {
 	return l.data
 }
 
