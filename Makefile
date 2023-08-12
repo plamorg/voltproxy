@@ -11,6 +11,9 @@ run:
 test:
 	go test -count=1 ./...
 
+lint:
+	golangci-lint run
+
 clean:
 	go clean
 	rm -f $(BINARY_NAME)

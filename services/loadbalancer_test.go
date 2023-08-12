@@ -3,20 +3,9 @@ package services
 import (
 	"errors"
 	"testing"
+
+	"github.com/plamorg/voltproxy/services/selection"
 )
-
-func TestRoundRobin(t *testing.T) {
-	max := uint(3)
-	rr := newRoundRobin(max)
-
-	expected := []uint{0, 1, 2, 0, 1, 2}
-	for i := 0; i < len(expected); i++ {
-		next := rr.next()
-		if next != expected[i] {
-			t.Fatalf("expected %d, got %d", expected[i], next)
-		}
-	}
-}
 
 func TestGenerateCookieName(t *testing.T) {
 	host := "foo.example.com"
@@ -42,7 +31,7 @@ func TestNewLoadBalancerDefaultRoundRobin(t *testing.T) {
 		t.Fatalf("expected strategy to be set")
 	}
 
-	if _, ok := lb.strategy.(*roundRobin); !ok {
+	if _, ok := lb.strategy.(*selection.RoundRobin); !ok {
 		t.Fatalf("expected strategy to be a round robin")
 	}
 }
@@ -56,7 +45,7 @@ func TestNewLoadBalancerError(t *testing.T) {
 		"no services": {
 			services:    []Service{},
 			info:        LoadBalancerInfo{},
-			expectedErr: errNoServicesSpecified,
+			expectedErr: selection.ErrNoServicesSpecified,
 		},
 		"invalid strategy": {
 			services: []Service{nil},
@@ -64,7 +53,7 @@ func TestNewLoadBalancerError(t *testing.T) {
 				Strategy:     "invalid",
 				ServiceNames: []string{"foo"},
 			},
-			expectedErr: errInvalidLoadBalancerStrategy,
+			expectedErr: selection.ErrInvalidStrategy,
 		},
 	}
 

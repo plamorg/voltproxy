@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+
+	"github.com/plamorg/voltproxy/services/selection"
 )
 
 const (
@@ -14,33 +16,6 @@ const (
 	lbCookieBase       = 10
 	lbCookieBitSize    = 64
 )
-
-var (
-	errInvalidLoadBalancerStrategy = fmt.Errorf("invalid load balancer strategy")
-	errNoServicesSpecified         = fmt.Errorf("no services specified")
-)
-
-type loadBalancerStrategy interface {
-	next() uint
-}
-
-type roundRobin struct {
-	max     uint
-	current uint
-}
-
-func newRoundRobin(max uint) *roundRobin {
-	return &roundRobin{
-		max:     max,
-		current: 0,
-	}
-}
-
-func (r *roundRobin) next() uint {
-	current := r.current
-	r.current = (r.current + 1) % r.max
-	return current
-}
 
 // LoadBalancerInfo is the information needed to create a load balancer.
 type LoadBalancerInfo struct {
@@ -57,7 +32,7 @@ type LoadBalancerInfo struct {
 type LoadBalancer struct {
 	data Data
 
-	strategy   loadBalancerStrategy
+	strategy   selection.Strategy
 	services   []Service
 	cookieName string
 
@@ -73,15 +48,9 @@ func generateCookieName(host string) string {
 
 // NewLoadBalancer creates a new load balancer service.
 func NewLoadBalancer(data Data, services []Service, info LoadBalancerInfo) (*LoadBalancer, error) {
-	if len(services) == 0 {
-		return nil, fmt.Errorf("%s: %w", data.Host, errNoServicesSpecified)
-	}
-	var s loadBalancerStrategy
-	switch info.Strategy {
-	case "roundRobin", "":
-		s = newRoundRobin(uint(len(services)))
-	default:
-		return nil, fmt.Errorf("%s: %w %s", data.Host, errInvalidLoadBalancerStrategy, info.Strategy)
+	s, err := selection.NewStrategy(info.Strategy, uint(len(services)))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", data.Host, err)
 	}
 	return &LoadBalancer{
 		data:       data,
@@ -104,7 +73,7 @@ func (l *LoadBalancer) persistentRemote(w http.ResponseWriter, r *http.Request) 
 			return l.services[cookieNext].Remote(w, r)
 		}
 	}
-	next := l.strategy.next()
+	next := l.strategy.Select()
 	cookie := &http.Cookie{
 		Name:     l.cookieName,
 		Value:    fmt.Sprint(next),
@@ -119,6 +88,6 @@ func (l *LoadBalancer) Remote(w http.ResponseWriter, r *http.Request) (*url.URL,
 	if l.info.Persistent {
 		return l.persistentRemote(w, r)
 	}
-	next := l.strategy.next()
+	next := l.strategy.Select()
 	return l.services[next].Remote(w, r)
 }
