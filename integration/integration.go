@@ -42,10 +42,7 @@ func NewInstance(t *testing.T, confData []byte, containers []types.Container) *I
 		t.Fatal(err)
 	}
 
-	err = services.StartHealthChecks()
-	if err != nil {
-		t.Fatal(err)
-	}
+	services.StartHealthChecks()
 
 	server := httptest.NewServer(services.Handler())
 	tlsServer := httptest.NewServer(services.TLSHandler())

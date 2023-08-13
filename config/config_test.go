@@ -13,6 +13,7 @@ import (
 	"github.com/plamorg/voltproxy/logging"
 	"github.com/plamorg/voltproxy/middlewares"
 	"github.com/plamorg/voltproxy/services"
+	"github.com/plamorg/voltproxy/services/health"
 )
 
 func TestServiceMapValidate(t *testing.T) {
@@ -254,6 +255,29 @@ services:
 			config: `readTimeout: 10s`,
 			expectedConfig: &Config{
 				ReadTimeout: 10 * time.Second,
+			},
+			err: nil,
+		},
+		"service with health": {
+			config: `
+services:
+  foo:
+    host: foo.example.com
+    redirect: https://foo.example.com
+    health:
+      interval: 1s`,
+			expectedConfig: &Config{
+				Services: serviceMap{
+					"foo": {
+						Host: "foo.example.com",
+						Services: services.Services{
+							Redirect: "https://foo.example.com",
+						},
+						Health: &health.Info{
+							Interval: time.Second,
+						},
+					},
+				},
 			},
 			err: nil,
 		},

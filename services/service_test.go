@@ -23,20 +23,6 @@ func (m *MockService) Remote(_ http.ResponseWriter, _ *http.Request) (*url.URL, 
 	return nil, fmt.Errorf("something bad happened")
 }
 
-func TestStartHealthChecksError(t *testing.T) {
-	services := List{
-		&MockService{
-			Data{
-				Health: &Health{},
-			},
-		},
-	}
-	err := services.StartHealthChecks()
-	if err == nil {
-		t.Fatalf("expected error, got nil")
-	}
-}
-
 func TestFindServiceWithHostFailure(t *testing.T) {
 	tests := map[string]struct {
 		list          List

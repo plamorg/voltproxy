@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"net/http/httputil"
 	"net/url"
 	"reflect"
 
 	"github.com/plamorg/voltproxy/middlewares"
+	"github.com/plamorg/voltproxy/services/health"
 )
 
 // Services is a structure of all services configurations.
@@ -44,24 +44,24 @@ type Data struct {
 	Host        string
 	TLS         bool
 	Middlewares []middlewares.Middleware
-	Health      *Health
+	Health      *health.Health
 }
 
 // NewData constructs a Data.
-func NewData(host string, tls bool, m *middlewares.Middlewares, h *HealthInfo) Data {
-	var l []middlewares.Middleware
+func NewData(host string, tls bool, m *middlewares.Middlewares, healthInfo *health.Info) Data {
+	var middlewareList []middlewares.Middleware
 	if m != nil {
-		l = m.List()
+		middlewareList = m.List()
 	}
-	var health *Health
-	if h != nil {
-		health = NewHealth(*h)
+	var h *health.Health
+	if healthInfo != nil {
+		h = health.New(*healthInfo)
 	}
 	return Data{
 		Host:        host,
 		TLS:         tls,
-		Middlewares: l,
-		Health:      health,
+		Middlewares: middlewareList,
+		Health:      h,
 	}
 }
 
@@ -84,27 +84,27 @@ func (l *List) findServiceWithHost(host string) (*Service, error) {
 }
 
 // StartHealthChecks starts the health checks for all services.
-func (l *List) StartHealthChecks() error {
+func (l *List) StartHealthChecks() {
 	for _, service := range *l {
 		// This is a workaround for the loop variable problem.
 		// See: https://github.com/golang/go/wiki/LoopvarExperiment
 		service := service
 
 		if service.Data().Health != nil {
-			w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
-			url, err := service.Remote(w, r)
-			if err != nil {
-				return err
-			}
-			go service.Data().Health.Launch(url)
+			logger := slog.Default().With(slog.Any("service", service.Data()))
+			go service.Data().Health.Launch(service.Remote)
 			go func() {
 				for {
-					<-service.Data().Health.c
+					res := <-service.Data().Health.Check()
+					if res.Err != nil || !service.Data().Health.Up() {
+						logger.Warn("Failed health check", slog.Any("result", res))
+					} else {
+						logger.Debug("Successful Health check", slog.Any("result", res))
+					}
 				}
 			}()
 		}
 	}
-	return nil
 }
 
 // Handler returns a http.Handler that proxies requests to services, redirecting to TLS if applicable.

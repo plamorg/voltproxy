@@ -12,6 +12,7 @@ import (
 	"github.com/plamorg/voltproxy/logging"
 	"github.com/plamorg/voltproxy/middlewares"
 	"github.com/plamorg/voltproxy/services"
+	"github.com/plamorg/voltproxy/services/health"
 )
 
 var (
@@ -25,7 +26,7 @@ type serviceMap map[string]struct {
 	Host        string                   `yaml:"host"`
 	TLS         bool                     `yaml:"tls"`
 	Middlewares *middlewares.Middlewares `yaml:"middlewares"`
-	Health      *services.HealthInfo     `yaml:"health"`
+	Health      *health.Info             `yaml:"health"`
 
 	services.Services `yaml:",inline"`
 }
@@ -79,6 +80,9 @@ func Parse(data []byte) (*Config, error) {
 func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
 	m := make(map[string]services.Service)
 	for name, service := range c.Services {
+		if service.LoadBalancer != nil {
+			continue
+		}
 		data := services.NewData(service.Host, service.TLS, service.Middlewares, service.Health)
 		if service.Container != nil {
 			m[name] = services.NewContainer(data, docker, *service.Container)

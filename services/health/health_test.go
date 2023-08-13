@@ -1,4 +1,4 @@
-package services
+package health
 
 import (
 	"net/http"
@@ -86,35 +86,35 @@ func TestConstructHealthRemote(t *testing.T) {
 func TestHealthLaunchBadMethod(t *testing.T) {
 	remote := url.URL{}
 
-	health := NewHealth(HealthInfo{
+	health := New(Info{
 		Path:     "/health",
 		Method:   "*?", // Invalid method causes NewRequest to fail.
 		TLS:      false,
 		Interval: time.Millisecond,
 	})
 
-	go health.Launch(&remote)
+	go health.Launch(func(w http.ResponseWriter, r *http.Request) (*url.URL, error) { return &remote, nil })
 
-	up := <-health.c
-	if up {
-		t.Errorf("expected false, got %v", up)
+	<-health.c
+	if health.Up() {
+		t.Errorf("expected false, got %v", health.Up())
 	}
 }
 
 func TestHealthLaunchBadRequest(t *testing.T) {
 	remote := url.URL{}
 
-	health := NewHealth(HealthInfo{
+	health := New(Info{
 		Path:     "/health",
 		TLS:      false,
 		Interval: time.Millisecond,
 	})
 
-	go health.Launch(&remote)
+	go health.Launch(func(w http.ResponseWriter, r *http.Request) (*url.URL, error) { return &remote, nil })
 
-	up := <-health.c
-	if up {
-		t.Errorf("expected false, got %v", up)
+	<-health.c
+	if health.Up() {
+		t.Errorf("expected false, got %v", health.Up())
 	}
 }
 
@@ -148,19 +148,19 @@ func TestHealthLaunch(t *testing.T) {
 				t.Fatalf("could not parse url %v", err)
 			}
 
-			health := NewHealth(HealthInfo{
+			health := New(Info{
 				Path:     "/health",
 				TLS:      false,
 				Interval: time.Millisecond,
 			})
 
-			go health.Launch(remote)
+			go health.Launch(func(w http.ResponseWriter, r *http.Request) (*url.URL, error) { return remote, nil })
 
 			results := make([]bool, 0)
 
 			for {
-				up := <-health.c
-				results = append(results, up)
+				<-health.c
+				results = append(results, health.Up())
 				if len(results) == len(test.expected) {
 					break
 				}

@@ -364,3 +364,39 @@ services:
 		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
 	}
 }
+
+func TestLoadBalancerHealthUp(t *testing.T) {
+	// Although the server normally returns StatusForbidden, it returns a healthy status.
+	// Thus, the health check should pass fine.
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/health" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+		w.WriteHeader(http.StatusForbidden)
+	}))
+
+	conf := fmt.Sprintf(`
+services:
+  lb:
+    host: lb.example.com
+    loadBalancer:
+      serviceNames: ["up"]
+  up:
+    redirect: "%s"
+    health:
+      interval: 0.5ms
+      path: "/health"`, up.URL)
+	i := NewInstance(t, []byte(conf), nil)
+
+	ticker := time.NewTicker(2 * time.Millisecond)
+	defer ticker.Stop()
+	<-ticker.C
+
+	res := i.RequestHost("lb.example.com")
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusForbidden {
+		t.Fatalf("expected status code %d, got %d", http.StatusForbidden, res.StatusCode)
+	}
+}

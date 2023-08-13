@@ -69,11 +69,7 @@ func main() {
 	}
 	slog.Info("Created service list", slog.Int("count", len(services)))
 
-	err = services.StartHealthChecks()
-	if err != nil {
-		slog.Error("Error while starting health checks", slog.Any("error", err))
-		os.Exit(1)
-	}
+	services.StartHealthChecks()
 
 	tlsHosts := conf.TLSHosts()
 	slog.Info("Managing certificates for hosts", slog.Any("hosts", tlsHosts))
