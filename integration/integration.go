@@ -3,20 +3,49 @@ package integration
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
-	"github.com/docker/docker/api/types"
 	"github.com/plamorg/voltproxy/config"
 	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/services"
 )
 
-// TeapotServer is a test server that always returns http.StatusTeapot.
-var TeapotServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusTeapot)
-}))
+// MockServer is a test instance of a server.
+type MockServer struct {
+	t      *testing.T
+	server *httptest.Server
+}
+
+// NewMockServer creates a new test instance of a server.
+// The server will be closed when the test function returns.
+func NewMockServer(t *testing.T, handle http.HandlerFunc) *MockServer {
+	t.Helper()
+	server := httptest.NewServer(handle)
+	t.Cleanup(func() {
+		server.Close()
+	})
+	return &MockServer{t, server}
+}
+
+// URL returns the URL of the server.
+func (s *MockServer) URL() string {
+	return s.server.URL
+}
+
+// SplitHostPort returns the host and port of the server.
+// Will call t.Fatal if the URL is invalid.
+func (s *MockServer) SplitHostPort() (host, port string) {
+	s.t.Helper()
+	host, port, err := net.SplitHostPort(strings.TrimPrefix(s.server.URL, "http://"))
+	if err != nil {
+		s.t.Fatal(err)
+	}
+	return
+}
 
 // Instance is a test instance of the reverse proxy corresponding to a config.
 type Instance struct {
@@ -28,21 +57,21 @@ type Instance struct {
 }
 
 // NewInstance creates a new instance of the reverse proxy with the given config.
-func NewInstance(t *testing.T, confData []byte, containers []types.Container) *Instance {
+func NewInstance(t *testing.T, confData []byte, containers ...[]dockerapi.Container) *Instance {
 	t.Helper()
 	conf, err := config.Parse(confData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	docker := dockerapi.NewMock(containers)
+	docker := dockerapi.NewMock(containers...)
 
 	services, err := conf.ServiceList(docker)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	services.StartHealthChecks()
+	services.LaunchHealthChecks()
 
 	server := httptest.NewServer(services.Handler())
 	tlsServer := httptest.NewServer(services.TLSHandler())

@@ -21,11 +21,13 @@ func NewRedirect(data Data, remote string) *Redirect {
 }
 
 // Data returns the data of the Redirect service.
-func (r *Redirect) Data() Data {
-	return r.data
+func (r *Redirect) Data() *Data {
+	return &r.data
 }
 
 // Remote returns the remote URL of the Redirect service.
 func (r *Redirect) Remote(_ http.ResponseWriter, _ *http.Request) (*url.URL, error) {
 	return url.Parse(r.remote)
 }
+
+var _ Service = (*Redirect)(nil)

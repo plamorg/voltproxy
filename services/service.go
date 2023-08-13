@@ -2,6 +2,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -14,13 +15,15 @@ import (
 )
 
 // Services is a structure of all services configurations.
+// It is used to unmarshal the YAML configuration file and should
+// end up representing exactly one service.
 type Services struct {
 	Container    *ContainerInfo    `yaml:"container"`
 	Redirect     string            `yaml:"redirect"`
 	LoadBalancer *LoadBalancerInfo `yaml:"loadBalancer"`
 }
 
-// Validate returns true if there is exactly one service.
+// Validate reports whether the Services struct represents exactly one service.
 func (s *Services) Validate() bool {
 	v := reflect.ValueOf(*s)
 	count := 0
@@ -65,26 +68,35 @@ func NewData(host string, tls bool, m *middlewares.Middlewares, healthInfo *heal
 	}
 }
 
+// IsHealthy returns true if the service is healthy.
+// It assumes that a service with no health check is healthy.
+func (d *Data) IsHealthy() bool {
+	if d.Health == nil {
+		return true
+	}
+	return d.Health.Up()
+}
+
 // Service is an interface describing an arbitrary service that can be proxied.
 type Service interface {
-	Data() Data
+	Data() *Data
 	Remote(http.ResponseWriter, *http.Request) (*url.URL, error)
 }
 
 // List is a list of services which can be used to proxy requests (http.Request).
 type List []Service
 
-func (l *List) findServiceWithHost(host string) (*Service, error) {
+func (l *List) findServiceWithHost(host string) (Service, error) {
 	for _, service := range *l {
 		if service.Data().Host == host {
-			return &service, nil
+			return service, nil
 		}
 	}
 	return nil, fmt.Errorf("%w: %s", errNoServiceFound, host)
 }
 
-// StartHealthChecks starts the health checks for all services.
-func (l *List) StartHealthChecks() {
+// LaunchHealthChecks starts the health checks for all services.
+func (l *List) LaunchHealthChecks() {
 	for _, service := range *l {
 		// This is a workaround for the loop variable problem.
 		// See: https://github.com/golang/go/wiki/LoopvarExperiment
@@ -129,22 +141,26 @@ func (l *List) handler(tls bool) http.Handler {
 			return
 		}
 
-		if (*service).Data().TLS && !tls {
+		if service.Data().TLS && !tls {
 			redirectURL := "https://" + r.Host + r.URL.String()
 			logger.Debug("Redirecting to TLS server", slog.String("redirect", redirectURL))
 			http.Redirect(w, r, redirectURL, http.StatusMovedPermanently)
 			return
 		}
-		if !(*service).Data().TLS && tls {
+		if !service.Data().TLS && tls {
 			logger.Debug("Service does not support TLS")
 			w.WriteHeader(http.StatusNotFound)
 			return
 		}
 
-		remote, err := (*service).Remote(w, r)
+		remote, err := service.Remote(w, r)
 		if err != nil {
 			logger.Warn("Error while getting remote URL", slog.Any("error", err))
-			w.WriteHeader(http.StatusInternalServerError)
+			status := http.StatusInternalServerError
+			if errors.Is(err, errNoServiceFound) {
+				status = http.StatusNotFound
+			}
+			w.WriteHeader(status)
 			return
 		}
 
@@ -155,7 +171,7 @@ func (l *List) handler(tls bool) http.Handler {
 			proxy.ServeHTTP(w, r)
 		})
 
-		middlewares := (*service).Data().Middlewares
+		middlewares := service.Data().Middlewares
 		if len(middlewares) > 0 {
 			slog.Debug("Adding middlewares", slog.Int("count", len(middlewares)))
 			for _, middleware := range middlewares {

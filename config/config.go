@@ -46,15 +46,14 @@ func (s *serviceMap) validate() error {
 		if !service.Services.Validate() {
 			return fmt.Errorf("%s: %w", name, errMustHaveOneService)
 		}
-
-		if _, ok := hosts[service.Host]; ok {
-			return fmt.Errorf("%w %s", errDuplicateHost, service.Host)
-		}
-
 		// Allow empty host for services. This is useful for services that
 		// should only be accessed via another load balancer service.
 		if service.Host != "" {
+			if _, ok := hosts[service.Host]; ok {
+				return fmt.Errorf("%w %s", errDuplicateHost, service.Host)
+			}
 			hosts[service.Host] = true
+
 		}
 	}
 	return nil
@@ -77,7 +76,7 @@ func Parse(data []byte) (*Config, error) {
 }
 
 // ServiceList returns a list of services from the config.
-func (c *Config) ServiceList(docker dockerapi.Adapter) (services.List, error) {
+func (c *Config) ServiceList(docker dockerapi.Docker) (services.List, error) {
 	m := make(map[string]services.Service)
 	for name, service := range c.Services {
 		if service.LoadBalancer != nil {

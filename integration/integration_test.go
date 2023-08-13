@@ -3,59 +3,63 @@ package integration
 import (
 	"context"
 	"fmt"
-	"net"
 	"net/http"
-	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/network"
+	"github.com/plamorg/voltproxy/dockerapi"
 )
 
 func TestSimpleHTTP(t *testing.T) {
+	expectedCode := http.StatusAccepted
+	server := NewMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(expectedCode)
+	})
 	conf := fmt.Sprintf(`
 services:
   simple:
     host: foo.example.com
     redirect: "%s"`,
-		TeapotServer.URL)
+		server.URL())
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHost("foo.example.com")
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusTeapot {
-		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
+	if res.StatusCode != expectedCode {
+		t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
 	}
 }
 
 func TestSimpleHTTPS(t *testing.T) {
+	expectedCode := http.StatusCreated
+	server := NewMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(expectedCode)
+	})
 	conf := fmt.Sprintf(`
 services:
   foo:
     host: secure.example.com
     tls: true
     redirect: "%s"`,
-		TeapotServer.URL)
+		server.URL())
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHostTLS("secure.example.com")
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusTeapot {
-		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
+	if res.StatusCode != expectedCode {
+		t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
 	}
 }
 
 func TestTLSNotAvailable(t *testing.T) {
-	conf := fmt.Sprintf(`
+	conf := `
 services:
   notls:
     host: notls.example.com
     tls: false
-    redirect: "%s"`, TeapotServer.URL)
+    redirect: "invalid"`
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHostTLS("notls.example.com")
@@ -67,6 +71,11 @@ services:
 }
 
 func TestForwardToCorrectService(t *testing.T) {
+	expectedCode := http.StatusTeapot
+	service3 := NewMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(expectedCode)
+	})
+
 	conf := fmt.Sprintf(`
 services:
   service1:
@@ -80,7 +89,7 @@ services:
     redirect: "%s"
   service4:
     host: service4.example.com
-    redirect: "invalid"`, TeapotServer.URL)
+    redirect: "invalid"`, service3.URL())
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHost("service3.example.com")
@@ -92,11 +101,11 @@ services:
 }
 
 func TestServiceNotFound(t *testing.T) {
-	conf := fmt.Sprintf(`
+	conf := `
 services:
   single:
     host: example.com
-    redirect: "%s"`, TeapotServer.URL)
+    redirect: "invalid"`
 	i := NewInstance(t, []byte(conf), nil)
 
 	res := i.RequestHost("notfound.example.com")
@@ -127,36 +136,30 @@ services:
 	res := i.RequestHost("container.example.com")
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusInternalServerError {
-		t.Fatalf("expected status code %d, got %d", http.StatusInternalServerError, res.StatusCode)
+	expectedStatus := http.StatusNotFound
+	if res.StatusCode != expectedStatus {
+		t.Fatalf("expected status code %d, got %d", expectedStatus, res.StatusCode)
 	}
 }
 
 func TestContainerFound(t *testing.T) {
-	teapotHost, teapotPort, err := net.SplitHostPort(strings.TrimPrefix(TeapotServer.URL, "http://"))
-	if err != nil {
-		t.Fatalf("failed to parse host and port from %s", TeapotServer.URL)
-	}
+	expectedCode := http.StatusTeapot
+	server := NewMockServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(expectedCode)
+	})
+	host, port := server.SplitHostPort()
 
-	containers := []types.Container{
+	containers := []dockerapi.Container{
 		{
 			Names: []string{"/oof", "/another-container"},
-			NetworkSettings: &types.SummaryNetworkSettings{
-				Networks: map[string]*network.EndpointSettings{
-					"bar": {
-						IPAddress: "invalid",
-					},
-				},
+			Networks: map[string]dockerapi.IPAddress{
+				"bar": "invalid",
 			},
 		},
 		{
 			Names: []string{"/bar", "/foo"},
-			NetworkSettings: &types.SummaryNetworkSettings{
-				Networks: map[string]*network.EndpointSettings{
-					"bar": {
-						IPAddress: teapotHost,
-					},
-				},
+			Networks: map[string]dockerapi.IPAddress{
+				"bar": dockerapi.IPAddress(host),
 			},
 		},
 	}
@@ -167,26 +170,26 @@ services:
     container:
       name: "/foo"
       network: "bar"
-      port: %s`, teapotPort)
+      port: %s`, port)
 
 	i := NewInstance(t, []byte(conf), containers)
 
 	res := i.RequestHost("containerservice.example.com")
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusTeapot {
-		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
+	if res.StatusCode != expectedCode {
+		t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
 	}
 }
 
 func TestMultipleMiddlewares(t *testing.T) {
 	authServerRan := false
 
-	fatalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	fatalServer := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
 		t.Fatal("should not be called")
-	}))
+	})
 
-	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	authServer := NewMockServer(t, (func(w http.ResponseWriter, r *http.Request) {
 		authServerRan = true
 		if r.Header.Get("X-Forwarded-For") == "" {
 			t.Errorf("expected X-Forwarded-For header to be set")
@@ -196,7 +199,6 @@ func TestMultipleMiddlewares(t *testing.T) {
 		}
 		w.WriteHeader(http.StatusAccepted)
 	}))
-	defer authServer.Close()
 
 	conf := fmt.Sprintf(`
 services:
@@ -209,7 +211,7 @@ services:
         xForwarded: true
         requestHeaders: ["Custom-Header"]
       ipAllow:
-        - 0.0.0.0/32`, fatalServer.URL, authServer.URL)
+        - 0.0.0.0/32`, fatalServer.URL(), authServer.URL())
 	// In CIDR notation, 0.0.0.0/0 represents all IPv4 addresses.
 	// This means the ipallow middleware will allow all requests regardless of incoming IP address.
 
@@ -235,12 +237,16 @@ services:
 }
 
 func TestLoadBalancerRoundRobin(t *testing.T) {
-	fooServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusCreated)
-	}))
-	barServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusAccepted)
-	}))
+	serverName := "Server-Name"
+	foo := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(serverName, "foo")
+	})
+	bar := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(serverName, "bar")
+	})
+	baz := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(serverName, "baz")
+	})
 
 	conf := fmt.Sprintf(`
 services:
@@ -248,46 +254,42 @@ services:
       host: lb.example.com
       loadBalancer:
         strategy: roundRobin
-        serviceNames: ["foo", "bar", "invalid"]
+        serviceNames: ["foo", "bar", "baz"]
     foo:
       host: foo.example.com
       redirect: "%s"
     bar:
       redirect: "%s"
-    invalid:
-      host: invalid.example.com
-      redirect: "invalid"`, fooServer.URL, barServer.URL)
+    baz:
+      host: baz.example.com
+      redirect: "%s"`, foo.URL(), bar.URL(), baz.URL())
 
 	i := NewInstance(t, []byte(conf), nil)
 
-	fooRes1 := i.RequestHost("lb.example.com")
-	defer fooRes1.Body.Close()
-	barRes := i.RequestHost("lb.example.com")
-	defer barRes.Body.Close()
+	expected := []string{"foo", "bar", "baz", "foo", "bar", "baz"}
 
-	invalidRes := i.RequestHost("lb.example.com")
-	defer invalidRes.Body.Close()
+	for _, expectedServer := range expected {
+		res := i.RequestHost("lb.example.com")
+		defer res.Body.Close()
 
-	fooRes2 := i.RequestHost("lb.example.com")
-	defer fooRes2.Body.Close()
+		if res.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code %d, got %d", http.StatusOK, res.StatusCode)
+		}
 
-	if fooRes1.StatusCode != http.StatusCreated {
-		t.Fatalf("expected status code %d, got %d", http.StatusCreated, fooRes1.StatusCode)
-	}
-
-	if barRes.StatusCode != http.StatusAccepted {
-		t.Fatalf("expected status code %d, got %d", http.StatusAccepted, barRes.StatusCode)
-	}
-
-	if fooRes2.StatusCode != http.StatusCreated {
-		t.Fatalf("expected status code %d, got %d", http.StatusCreated, fooRes2.StatusCode)
+		if res.Header.Get(serverName) != expectedServer {
+			t.Fatalf("expected header %s to be %s, got %s", serverName, expectedServer, res.Header.Get(serverName))
+		}
 	}
 }
 
 func TestLoadBalancerPersistent(t *testing.T) {
-	barServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusAccepted)
-	}))
+	serverName := "Server-Name"
+	foo := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(serverName, "foo")
+	})
+	bar := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set(serverName, "bar")
+	})
 
 	conf := fmt.Sprintf(`
 services:
@@ -300,7 +302,7 @@ services:
   foo:
     redirect: "%s"
   bar:
-    redirect: "%s"`, TeapotServer.URL, barServer.URL)
+    redirect: "%s"`, foo.URL(), bar.URL())
 
 	i := NewInstance(t, []byte(conf), nil)
 
@@ -315,26 +317,29 @@ services:
 	for _, cookie := range res1.Cookies() {
 		req.AddCookie(cookie)
 	}
+
 	res2 := i.Request(req)
 	defer res2.Body.Close()
 
-	if res1.StatusCode != http.StatusTeapot {
-		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res1.StatusCode)
-	}
-
-	if res2.StatusCode != http.StatusTeapot {
-		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res2.StatusCode)
+	if res1.Header.Get(serverName) != "foo" || res2.Header.Get(serverName) != "foo" {
+		t.Fatalf("expected both requests to be routed to foo, got %s and %s",
+			res1.Header.Get(serverName), res2.Header.Get(serverName))
 	}
 }
 
 func TestLoadBalancerHealth(t *testing.T) {
-	down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	unhealthy := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/health" {
 			w.WriteHeader(http.StatusServiceUnavailable)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-	}))
+	})
+
+	expectedCode := http.StatusTeapot
+	up := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(expectedCode)
+	})
 
 	conf := fmt.Sprintf(`
 services:
@@ -342,14 +347,14 @@ services:
     host: lb.example.com
     loadBalancer:
       strategy: roundRobin
-      serviceNames: ["down", "up"]
-  down:
+      serviceNames: ["unhealthy", "up"]
+  unhealthy:
     redirect: "%s"
     health:
       path: "/health"
       interval: 0.5ms
   up:
-    redirect: "%s"`, down.URL, TeapotServer.URL)
+    redirect: "%s"`, unhealthy.URL(), up.URL())
 
 	i := NewInstance(t, []byte(conf), nil)
 
@@ -360,21 +365,22 @@ services:
 	res := i.RequestHost("lb.example.com")
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusTeapot {
-		t.Fatalf("expected status code %d, got %d", http.StatusTeapot, res.StatusCode)
+	if res.StatusCode != expectedCode {
+		t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
 	}
 }
 
 func TestLoadBalancerHealthUp(t *testing.T) {
 	// Although the server normally returns StatusForbidden, it returns a healthy status.
 	// Thus, the health check should pass fine.
-	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/health" {
+	expectedCode := http.StatusForbidden
+	up := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/what_is_my_health" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		w.WriteHeader(http.StatusForbidden)
-	}))
+		w.WriteHeader(expectedCode)
+	})
 
 	conf := fmt.Sprintf(`
 services:
@@ -386,7 +392,7 @@ services:
     redirect: "%s"
     health:
       interval: 0.5ms
-      path: "/health"`, up.URL)
+      path: "/what_is_my_health"`, up.URL())
 	i := NewInstance(t, []byte(conf), nil)
 
 	ticker := time.NewTicker(2 * time.Millisecond)
@@ -396,7 +402,48 @@ services:
 	res := i.RequestHost("lb.example.com")
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected status code %d, got %d", http.StatusForbidden, res.StatusCode)
+	if res.StatusCode != expectedCode {
+		t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
+	}
+}
+
+func TestFetchRemoteDynamically(t *testing.T) {
+	server := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	})
+	host, port := server.SplitHostPort()
+
+	container := dockerapi.Container{
+		Names: []string{"/server"},
+		Networks: map[string]dockerapi.IPAddress{
+			"net": dockerapi.IPAddress(host),
+		},
+	}
+
+	conf := fmt.Sprintf(`
+services:
+  server:
+    host: server.example.com
+    container:
+      name: "/server"
+      network: "net"
+      port: %s`, port)
+
+	i := NewInstance(t, []byte(conf),
+		[]dockerapi.Container{container}, // Containers on first request.
+		[]dockerapi.Container{},          // Containers on second request.
+		[]dockerapi.Container{container}, // Containers on third request.
+		[]dockerapi.Container{container}, // Containers on fourth request.
+	)
+
+	expected := []int{http.StatusAccepted, http.StatusNotFound, http.StatusAccepted, http.StatusAccepted}
+
+	for _, expectedCode := range expected {
+		res := i.RequestHost("server.example.com")
+		defer res.Body.Close()
+
+		if res.StatusCode != expectedCode {
+			t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
+		}
 	}
 }

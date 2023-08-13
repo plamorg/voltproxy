@@ -67,8 +67,8 @@ func TestFindServiceWithHostSuccess(t *testing.T) {
 		t.Fatalf("expected no error, got %v", err)
 	}
 
-	if !reflect.DeepEqual(*service, expectedService) {
-		t.Errorf("expected %v got %v", expectedService, *service)
+	if !reflect.DeepEqual(service, expectedService) {
+		t.Errorf("expected %v got %v", expectedService, service)
 	}
 }
 

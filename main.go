@@ -61,6 +61,7 @@ func main() {
 		slog.Error("Error while creating Docker client", slog.Any("error", err))
 		os.Exit(1)
 	}
+	slog.Info("Created Docker client", slog.Any("client", docker))
 
 	services, err := conf.ServiceList(docker)
 	if err != nil {
@@ -69,7 +70,7 @@ func main() {
 	}
 	slog.Info("Created service list", slog.Int("count", len(services)))
 
-	services.StartHealthChecks()
+	services.LaunchHealthChecks()
 
 	tlsHosts := conf.TLSHosts()
 	slog.Info("Managing certificates for hosts", slog.Any("hosts", tlsHosts))

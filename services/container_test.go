@@ -5,27 +5,20 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/network"
 	"github.com/plamorg/voltproxy/dockerapi"
 )
 
 func TestContainerRemoteSuccess(t *testing.T) {
-	adapter := dockerapi.NewMock([]types.Container{
+	dockerMock := dockerapi.NewMock([]dockerapi.Container{
 		{
-			ID:    "a",
 			Names: []string{"another", "test"},
-			NetworkSettings: &types.SummaryNetworkSettings{
-				Networks: map[string]*network.EndpointSettings{
-					"net": {
-						IPAddress: "127.0.0.1",
-					},
-				},
+			Networks: map[string]dockerapi.IPAddress{
+				"net": "127.0.0.1",
 			},
 		},
 	})
 
-	container := NewContainer(Data{Host: "host"}, adapter, ContainerInfo{
+	container := NewContainer(Data{Host: "host"}, dockerMock, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    1234,
@@ -48,24 +41,17 @@ func TestContainerRemoteSuccess(t *testing.T) {
 }
 
 func TestContainerRemoteNotInNetwork(t *testing.T) {
-	adapter := dockerapi.NewMock([]types.Container{
+	dockerMock := dockerapi.NewMock([]dockerapi.Container{
 		{
-			ID:    "a",
 			Names: []string{"test"},
-			NetworkSettings: &types.SummaryNetworkSettings{
-				Networks: map[string]*network.EndpointSettings{
-					"another": {
-						IPAddress: "172.24.0.3",
-					},
-					"foo": {
-						IPAddress: "bar",
-					},
-				},
+			Networks: map[string]dockerapi.IPAddress{
+				"another": "172.24.0.3",
+				"foo":     "bar",
 			},
 		},
 	})
 
-	container := NewContainer(Data{Host: "host"}, adapter, ContainerInfo{
+	container := NewContainer(Data{Host: "host"}, dockerMock, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    25565,
@@ -73,38 +59,28 @@ func TestContainerRemoteNotInNetwork(t *testing.T) {
 
 	_, err := container.Remote(nil, nil)
 
-	if !errors.Is(err, ErrContainerNotInNetwork) {
-		t.Errorf("expected error %v, got %v", ErrContainerNotInNetwork, err)
+	if !errors.Is(err, errNoServiceFound) {
+		t.Errorf("expected error %v, got %v", errNoServiceFound, err)
 	}
 }
 
 func TestContainerRemoteNoMatchingContainer(t *testing.T) {
-	adapter := dockerapi.NewMock([]types.Container{
+	dockerMock := dockerapi.NewMock([]dockerapi.Container{
 		{
-			ID:    "a",
 			Names: []string{"foo", "bar", ""},
-			NetworkSettings: &types.SummaryNetworkSettings{
-				Networks: map[string]*network.EndpointSettings{
-					"net": {
-						IPAddress: "172.24.0.3",
-					},
-				},
+			Networks: map[string]dockerapi.IPAddress{
+				"net": "172.24.0.3",
 			},
 		},
 		{
-			ID:    "b",
 			Names: []string{"baz"},
-			NetworkSettings: &types.SummaryNetworkSettings{
-				Networks: map[string]*network.EndpointSettings{
-					"net": {
-						IPAddress: "172.21.0.4",
-					},
-				},
+			Networks: map[string]dockerapi.IPAddress{
+				"net": "172.21.0.4",
 			},
 		},
 	})
 
-	container := NewContainer(Data{Host: "host"}, adapter, ContainerInfo{
+	container := NewContainer(Data{Host: "host"}, dockerMock, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    4321,
@@ -112,21 +88,21 @@ func TestContainerRemoteNoMatchingContainer(t *testing.T) {
 
 	_, err := container.Remote(nil, nil)
 
-	if !errors.Is(err, ErrNoMatchingContainer) {
-		t.Errorf("expected error %v, got %v", ErrContainerNotInNetwork, err)
+	if !errors.Is(err, errNoServiceFound) {
+		t.Errorf("expected error %v, got %v", errNoServiceFound, err)
 	}
 }
 
-var errBadAdapter = fmt.Errorf("bad adapter")
+var errBadDocker = fmt.Errorf("bad Docker")
 
-type badAdapter struct{}
+type badDocker struct{}
 
-func (badAdapter) ContainerList() ([]types.Container, error) {
-	return nil, errBadAdapter
+func (badDocker) ContainerList() ([]dockerapi.Container, error) {
+	return nil, errBadDocker
 }
 
 func TestContainerRemoteBadAdapter(t *testing.T) {
-	container := NewContainer(Data{Host: "host"}, badAdapter{}, ContainerInfo{
+	container := NewContainer(Data{Host: "host"}, badDocker{}, ContainerInfo{
 		Name:    "test",
 		Network: "net",
 		Port:    4321,
@@ -134,7 +110,7 @@ func TestContainerRemoteBadAdapter(t *testing.T) {
 
 	_, err := container.Remote(nil, nil)
 
-	if !errors.Is(err, errBadAdapter) {
-		t.Errorf("expected error %v, got %v", errBadAdapter, err)
+	if !errors.Is(err, errBadDocker) {
+		t.Errorf("expected error %v, got %v", errBadDocker, err)
 	}
 }

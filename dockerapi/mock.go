@@ -1,18 +1,25 @@
 package dockerapi
 
-import "github.com/docker/docker/api/types"
-
-// Mock is a mock implementation of the Adapter interface.
+// Mock is a mock implementation of the Docker interface.
+// It should be used by tests so the actual Docker API is not actually called.
 type Mock struct {
-	containers []types.Container
+	// outputs is a list of outputs to return from ContainerList.
+	outputs [][]Container
 }
 
-// NewMock returns a new Mock.
-func NewMock(containers []types.Container) *Mock {
-	return &Mock{containers}
+// NewMock returns a new Mock with the given container outputs.
+func NewMock(outputs ...[]Container) *Mock {
+	return &Mock{outputs}
 }
 
-// ContainerList returns the list of containers from the Mock's containers field.
-func (m *Mock) ContainerList() ([]types.Container, error) {
-	return m.containers, nil
+// ContainerList returns the next container output in the list of outputs.
+func (m *Mock) ContainerList() ([]Container, error) {
+	if len(m.outputs) == 0 {
+		return nil, nil
+	}
+	output := m.outputs[0]
+	m.outputs = m.outputs[1:]
+	return output, nil
 }
+
+var _ Docker = (*Mock)(nil)

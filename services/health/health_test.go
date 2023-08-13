@@ -1,9 +1,11 @@
 package health
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
 	"slices"
 	"sync"
 	"testing"
@@ -115,6 +117,23 @@ func TestHealthLaunchBadRequest(t *testing.T) {
 	<-health.c
 	if health.Up() {
 		t.Errorf("expected false, got %v", health.Up())
+	}
+}
+
+func TestHealthLaunchFailedRemote(t *testing.T) {
+	expectedErr := fmt.Errorf("failed remote")
+	remoteFunc := func(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
+		return nil, expectedErr
+	}
+
+	health := New(Info{Interval: time.Millisecond})
+
+	go health.Launch(remoteFunc)
+
+	res := <-health.c
+	expected := Result{Endpoint: "", Status: 0, Err: expectedErr}
+	if !reflect.DeepEqual(res, expected) {
+		t.Errorf("expected %v, got %v", expected, res)
 	}
 }
 

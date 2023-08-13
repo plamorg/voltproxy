@@ -72,14 +72,16 @@ func NewLoadBalancer(data Data, services []Service, info LoadBalancerInfo) (*Loa
 }
 
 // Data returns the data of the load balancer service.
-func (l *LoadBalancer) Data() Data {
-	return l.data
+func (l *LoadBalancer) Data() *Data {
+	return &l.data
 }
 
+// nextServer uses the attached selection strategy to select the next server that is healthy.
 func (l *LoadBalancer) nextServer() uint {
 	next := l.strategy.Select()
 	poolSize := len(l.services)
-	for poolSize > 1 && l.services[next].Data().Health != nil && !l.services[next].Data().Health.Up() {
+	for poolSize > 1 && !l.services[next].Data().IsHealthy() {
+		// The current service is unhealthy, so swap it with the last service in the pool and decrement the pool size.
 		l.services[next], l.services[poolSize-1] = l.services[poolSize-1], l.services[next]
 		poolSize--
 		strategy := selection.NewStrategy(l.info.Strategy, uint(poolSize))
@@ -91,7 +93,7 @@ func (l *LoadBalancer) nextServer() uint {
 func (l *LoadBalancer) persistentService(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
 	if cookie, err := r.Cookie(l.cookieName); err == nil {
 		cookieNext, err := strconv.ParseUint(cookie.Value, lbCookieBase, lbCookieBitSize)
-		if err == nil && (l.services[cookieNext].Data().Health == nil || l.services[cookieNext].Data().Health.Up()) {
+		if err == nil && l.services[cookieNext].Data().IsHealthy() {
 			return l.services[cookieNext].Remote(w, r)
 		}
 	}
@@ -113,3 +115,5 @@ func (l *LoadBalancer) Remote(w http.ResponseWriter, r *http.Request) (*url.URL,
 	next := l.nextServer()
 	return l.services[next].Remote(w, r)
 }
+
+var _ Service = (*LoadBalancer)(nil)

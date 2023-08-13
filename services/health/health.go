@@ -25,7 +25,7 @@ type Result struct {
 	Endpoint string
 }
 
-// LogValue returns a slog.Value for the result, ensuring that the error is logged as a string.
+// LogValue returns a slog.Value for the result, ensuring that the error is displayed properly.
 func (h Result) LogValue() slog.Value {
 	return slog.GroupValue(
 		slog.Int("status", h.Status),
@@ -61,6 +61,8 @@ func (h *Health) Up() bool {
 }
 
 // Launch starts the periodic health check.
+// A remoteFunc is used to get the service's remote URL in the case that the remote URL is dynamic.
+// This remote is then used to construct the health remote URL that will be used for the health check.
 func (h *Health) Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) (*url.URL, error)) {
 	ticker := time.NewTicker(h.Interval)
 	for {

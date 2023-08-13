@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/api/types/network"
 	"github.com/plamorg/voltproxy/dockerapi"
 	"github.com/plamorg/voltproxy/logging"
 	"github.com/plamorg/voltproxy/middlewares"
@@ -17,59 +15,38 @@ import (
 )
 
 func TestServiceMapValidate(t *testing.T) {
-	tests := map[string]struct {
+	tests := []struct {
+		name     string
 		services serviceMap
 		err      error
 	}{
-		"no services": {
-			serviceMap{},
-			nil,
+		{
+			name:     "empty service map is valid",
+			services: serviceMap{},
+			err:      nil,
 		},
-		"service with address": {
-			serviceMap{
+		{
+			name: "service with single service type is valid",
+			services: serviceMap{
 				"a": {
 					Host:     "b",
 					Services: services.Services{Redirect: "c"},
 				},
 			},
-			nil,
+			err: nil,
 		},
-		"service with container": {
-			serviceMap{
-				"a": {
-					Host:     "b",
-					Services: services.Services{Container: &services.ContainerInfo{Name: "c", Network: "d", Port: 0}},
+		{
+			name: "service without any service type is invalid",
+			services: serviceMap{
+				"bad": {
+					Host: "b",
 				},
 			},
-			nil,
+			err: errMustHaveOneService,
 		},
-		"service with TLS": {
-			serviceMap{
-				"secure": {
-					Host: "a", TLS: true,
-					Services: services.Services{Redirect: "b"},
-				},
-			},
-			nil,
-		},
-		"service with middleware": {
-			serviceMap{
-				"mid": {
-					Host: "host",
-					Middlewares: &middlewares.Middlewares{
-						IPAllow: middlewares.NewIPAllow([]string{"172.20.0.1"}),
-					},
-					Services: services.Services{Redirect: "https://example.com"},
-				},
-			},
-			nil,
-		},
-		"service with no container/address": {
-			serviceMap{"bad": {Host: "b"}},
-			errMustHaveOneService,
-		},
-		"service with both container and address": {
-			serviceMap{
+		{
+			name: "service with multiple service types is invalid",
+			services: serviceMap{
 				"invalid": {
 					Host: "b",
 					Services: services.Services{
@@ -78,10 +55,11 @@ func TestServiceMapValidate(t *testing.T) {
 					},
 				},
 			},
-			errMustHaveOneService,
+			err: errMustHaveOneService,
 		},
-		"services with duplicate host": {
-			serviceMap{
+		{
+			name: "detect duplicate hosts",
+			services: serviceMap{
 				"a": {
 					Host:     "b",
 					Services: services.Services{Redirect: "c"},
@@ -91,10 +69,11 @@ func TestServiceMapValidate(t *testing.T) {
 					Services: services.Services{Redirect: "c"},
 				},
 			},
-			errDuplicateHost,
+			err: errDuplicateHost,
 		},
-		"ignore duplicate host if host is empty string": {
-			serviceMap{
+		{
+			name: "ignore duplicate host error if host is empty string",
+			services: serviceMap{
 				"empty1": {
 					Host:     "",
 					Services: services.Services{Redirect: "c"},
@@ -110,11 +89,11 @@ func TestServiceMapValidate(t *testing.T) {
 					Services: services.Services{Redirect: "c"},
 				},
 			},
-			nil,
+			err: nil,
 		},
 	}
-	for name, test := range tests {
-		t.Run(name, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			if err := test.services.validate(); !errors.Is(err, test.err) {
 				t.Errorf("expected error %v got error %v", test.err, err)
 			}
@@ -403,19 +382,13 @@ func TestConfigServiceList(t *testing.T) {
 }
 
 func TestConfigServiceListWithContainers(t *testing.T) {
-	containers := []types.Container{
+	containers := []dockerapi.Container{
 		{
-			Names: []string{"b"},
-			NetworkSettings: &types.SummaryNetworkSettings{
-				Networks: map[string]*network.EndpointSettings{
-					"c": {
-						IPAddress: "1234",
-					},
-				},
-			},
+			Names:    []string{"b"},
+			Networks: map[string]dockerapi.IPAddress{"c": "1234"},
 		},
 	}
-	adapter := dockerapi.NewMock(containers)
+	dockerMock := dockerapi.NewMock(containers)
 
 	conf := Config{
 		Services: serviceMap{
@@ -433,14 +406,14 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	}
 
 	expectedServices := services.List{
-		services.NewContainer(services.Data{Host: "a"}, adapter, services.ContainerInfo{
+		services.NewContainer(services.Data{Host: "a"}, dockerMock, services.ContainerInfo{
 			Name:    "b",
 			Network: "c",
 			Port:    1234,
 		}),
 	}
 
-	services, err := conf.ServiceList(adapter)
+	services, err := conf.ServiceList(dockerMock)
 	if err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
