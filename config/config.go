@@ -53,7 +53,6 @@ func (s *serviceMap) validate() error {
 				return fmt.Errorf("%w %s", errDuplicateHost, service.Host)
 			}
 			hosts[service.Host] = true
-
 		}
 	}
 	return nil

@@ -40,4 +40,6 @@ linters:
     - typecheck
     - unconvert
     - unused
+    - unparam
     - usestdlibvars
+    - whitespace

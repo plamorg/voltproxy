@@ -14,9 +14,6 @@ func NewMock(outputs ...[]Container) *Mock {
 
 // ContainerList returns the next container output in the list of outputs.
 func (m *Mock) ContainerList() ([]Container, error) {
-	if len(m.outputs) == 0 {
-		return nil, nil
-	}
 	output := m.outputs[0]
 	m.outputs = m.outputs[1:]
 	return output, nil

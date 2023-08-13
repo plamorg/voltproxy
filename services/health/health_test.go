@@ -24,6 +24,12 @@ func newMockServer(path string, sequence ...int) mockServer {
 	return mockServer{wg: &wg, path: path, healthSequence: sequence}
 }
 
+func remoteFunc(remote *url.URL, err error) func(http.ResponseWriter, *http.Request) (*url.URL, error) {
+	return func(http.ResponseWriter, *http.Request) (*url.URL, error) {
+		return remote, err
+	}
+}
+
 func TestHealthDefaultValues(t *testing.T) {
 	expected := Info{
 		Path:     "/",
@@ -110,7 +116,7 @@ func TestHealthLaunchBadMethod(t *testing.T) {
 		Interval: time.Millisecond,
 	})
 
-	go health.Launch(func(w http.ResponseWriter, r *http.Request) (*url.URL, error) { return &remote, nil })
+	go health.Launch(remoteFunc(&remote, nil))
 
 	<-health.c
 	if health.Up() {
@@ -127,7 +133,7 @@ func TestHealthLaunchBadRequest(t *testing.T) {
 		Interval: time.Millisecond,
 	})
 
-	go health.Launch(func(w http.ResponseWriter, r *http.Request) (*url.URL, error) { return &remote, nil })
+	go health.Launch(remoteFunc(&remote, nil))
 
 	<-health.c
 	if health.Up() {
@@ -137,13 +143,9 @@ func TestHealthLaunchBadRequest(t *testing.T) {
 
 func TestHealthLaunchFailedRemote(t *testing.T) {
 	expectedErr := fmt.Errorf("failed remote")
-	remoteFunc := func(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
-		return nil, expectedErr
-	}
 
 	health := New(Info{Interval: time.Millisecond})
-
-	go health.Launch(remoteFunc)
+	go health.Launch(remoteFunc(nil, expectedErr))
 
 	res := <-health.c
 	expected := Result{Endpoint: "", Status: 0, Err: expectedErr}
@@ -188,7 +190,7 @@ func TestHealthLaunch(t *testing.T) {
 				Interval: time.Millisecond,
 			})
 
-			go health.Launch(func(w http.ResponseWriter, r *http.Request) (*url.URL, error) { return remote, nil })
+			go health.Launch(remoteFunc(remote, nil))
 
 			results := make([]bool, 0)
 

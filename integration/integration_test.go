@@ -3,6 +3,8 @@ package integration
 import (
 	"context"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
 	"os"
 	"testing"
@@ -10,6 +12,12 @@ import (
 	"github.com/plamorg/voltproxy/config"
 	"github.com/plamorg/voltproxy/dockerapi"
 )
+
+func TestMain(m *testing.M) {
+	// Silence log output.
+	log.SetOutput(io.Discard)
+	os.Exit(m.Run())
+}
 
 func TestSimpleHTTP(t *testing.T) {
 	expectedCode := http.StatusAccepted

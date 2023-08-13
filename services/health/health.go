@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"time"
 )
 
@@ -44,8 +45,9 @@ func (h Result) LogValue() slog.Value {
 type Health struct {
 	Info
 
-	c   chan Result
-	res Result
+	c        chan Result
+	resMutex sync.RWMutex
+	res      Result
 }
 
 // New creates a new Health.
@@ -63,9 +65,10 @@ func New(info Info) *Health {
 		info.Method = defaultHealthMethod
 	}
 	return &Health{
-		Info: info,
-		c:    make(chan Result),
-		res:  Result{Endpoint: "", Status: 0, Err: nil},
+		Info:     info,
+		c:        make(chan Result),
+		resMutex: sync.RWMutex{},
+		res:      Result{Endpoint: "", Status: 0, Err: nil},
 	}
 }
 
@@ -76,6 +79,8 @@ func (h *Health) Check() <-chan Result {
 
 // Up returns the current health status.
 func (h *Health) Up() bool {
+	h.resMutex.RLock()
+	defer h.resMutex.RUnlock()
 	return h.res.Status >= http.StatusOK && h.res.Status < http.StatusBadRequest
 }
 
@@ -88,14 +93,18 @@ func (h *Health) Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) 
 		w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
 		remote, err := remoteFunc(w, r)
 		if err != nil {
+			h.resMutex.Lock()
 			h.res = Result{Endpoint: "", Status: 0, Err: err}
+			h.resMutex.Unlock()
 			h.c <- h.res
 			continue
 		}
 
 		healthRemote := constructHealthRemote(remote, h.Path, h.TLS)
 		status, err := h.requestStatus(healthRemote)
+		h.resMutex.Lock()
 		h.res = Result{Endpoint: healthRemote.String(), Status: status, Err: err}
+		h.resMutex.Unlock()
 		h.c <- h.res
 
 		<-ticker.C
