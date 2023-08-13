@@ -9,13 +9,20 @@ import (
 	"time"
 )
 
+const (
+	defaultHealthPath     = "/"
+	defaultHealthInterval = 30 * time.Second
+	defaultHealthTimeout  = 5 * time.Second
+	defaultHealthMethod   = http.MethodGet
+)
+
 // Info describes a service Health capability.
 type Info struct {
-	Path     string        `yaml:"path" default:"/"`
+	Path     string        `yaml:"path"`
 	TLS      bool          `yaml:"tls"`
-	Interval time.Duration `yaml:"interval" default:"5s"`
-	Timeout  time.Duration `yaml:"timeout" default:"30s"`
-	Method   string        `yaml:"method" default:"GET"`
+	Interval time.Duration `yaml:"interval"`
+	Timeout  time.Duration `yaml:"timeout"`
+	Method   string        `yaml:"method"`
 }
 
 // Result is the result of a health check.
@@ -43,6 +50,18 @@ type Health struct {
 
 // New creates a new Health.
 func New(info Info) *Health {
+	if info.Path == "" {
+		info.Path = defaultHealthPath
+	}
+	if info.Interval == 0 {
+		info.Interval = defaultHealthInterval
+	}
+	if info.Timeout == 0 {
+		info.Timeout = defaultHealthTimeout
+	}
+	if info.Method == "" {
+		info.Method = defaultHealthMethod
+	}
 	return &Health{
 		Info: info,
 		c:    make(chan Result),

@@ -24,6 +24,21 @@ func newMockServer(path string, sequence ...int) mockServer {
 	return mockServer{wg: &wg, path: path, healthSequence: sequence}
 }
 
+func TestHealthDefaultValues(t *testing.T) {
+	expected := Info{
+		Path:     "/",
+		TLS:      false,
+		Interval: 30 * time.Second,
+		Timeout:  5 * time.Second,
+		Method:   "GET",
+	}
+
+	actual := New(Info{}).Info
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("expected %v, got %v", expected, actual)
+	}
+}
+
 func (m *mockServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != m.path {
 		w.WriteHeader(http.StatusNotFound)
