@@ -31,12 +31,12 @@ services:
     host: bar.plam.dev
     tls: true
     container:
-      name: "/container1"
-      network: "network1"
+      name: "/bar"
+      network: "bar_net"
       port: 8080
 ```
 
-This configuration instructs voltproxy to proxy incoming requests with the URL `http://example.plam.dev` to <https://example.com> and proxy incoming requests with the URL `https://bar.example.com` to the specified Docker container.
+This configuration instructs voltproxy to proxy incoming requests with the URL `http://example.plam.dev` to <https://example.com> and proxy incoming requests with the URL `https://bar.plam.dev` to the specified Docker container.
 
 ### Configuration examples
 
