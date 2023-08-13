@@ -20,12 +20,14 @@ services:
         # Forward X-Forwarded-* headers to the authentication server.
         xForwarded: true # Default: false.
 
+  # === Integrating with Authelia ===
   # The authForward middleware allows the use of external authenticators like Authelia to work with voltproxy proxied services.
   # Here is an example:
-  # 1. Firstly (and optionally), proxy the authelia service:
+  # 1. Firstly, proxy the Authelia service:
   authelia:
     host: authelia.example.com
     tls: true
+    # Redirect to local Authelia instance. Alternatively, specify container service if it's running in a Docker container.
     redirect: "http://172.22.0.2:9091"
 
   # 2. Proxy the service you want to protect with Authelia.
@@ -36,7 +38,7 @@ services:
     middlewares:
       # Specify authForward middleware on the to-be-protected service.
       authForward:
-        address: "http://172.22.0.2:9091/api/verify?rd=https://authelia.example.com"
+        address: "https://authelia.example.com/api/verify?rd=https://authelia.example.com"
         responseHeaders:
           ["Remote-User", "Remote-Groups", "Remote-Name", "Remote-Email"]
         xForwarded: true
