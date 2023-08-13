@@ -1,6 +1,8 @@
-# ⚡ voltproxy - Configurable Reverse Proxy
+![voltproxy Logo](./voltproxy.png)
 
-voltproxy is a reverse proxy designed to simplify the process of proxying Docker containers and other services.
+# ⚡ voltproxy
+
+voltproxy is a **reverse proxy** designed to simplify the process of proxying Docker containers and other services.
 With voltproxy, you can easily manage and redirect traffic to different services using a single YAML configuration file.
 
 ### Features:
