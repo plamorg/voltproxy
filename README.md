@@ -49,7 +49,7 @@ They are listed here for convenience:
 - ⚖️ [Load Balancing](./integration/examples/load-balancer.yml)
 - 🏥 [Health Checking](./integration/examples/health-check.yml)
 - 🔗 [Multiple Middlewares](./integration/examples/multiple-middlewares.yml)
-- ➕[Additional configuration options](./integration/examples/additional-configuration.yml)
+- ➕ [Additional configuration options](./integration/examples/additional-configuration.yml)
 
 #### Middleware Configuration
 
