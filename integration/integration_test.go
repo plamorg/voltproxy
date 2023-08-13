@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"testing"
 	"time"
 
+	"github.com/plamorg/voltproxy/config"
 	"github.com/plamorg/voltproxy/dockerapi"
 )
 
@@ -445,5 +447,37 @@ services:
 		if res.StatusCode != expectedCode {
 			t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
 		}
+	}
+}
+
+func TestExamples(t *testing.T) {
+	examples := []string{
+		"./examples/middlewares/auth-forward.yml",
+		"./examples/middlewares/ip-allow.yml",
+		"./examples/additional-configuration.yml",
+		"./examples/basic.yml",
+		"./examples/health-check.yml",
+		"./examples/load-balancer.yml",
+		"./examples/multiple-middlewares.yml",
+	}
+
+	for _, example := range examples {
+		t.Run(example, func(t *testing.T) {
+			confData, err := os.ReadFile(example)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			conf, err := config.Parse(confData)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			docker := dockerapi.NewMock()
+			_, err = conf.ServiceList(docker)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }

@@ -1,0 +1,17 @@
+services:
+  foo:
+    host: example.com
+
+    # Simply redirect incoming requests with host `example.com` to `https://foo.example.com`.
+    redirect: "https://foo.example.com"
+  bar:
+    host: bar.example.com
+
+    # Redirect HTTP requests to HTTPS and use TLS to serve the service.
+    tls: true
+
+    # Forward requests to a specific Docker container.
+    container:
+      name: "/container1"
+      network: "network1"
+      port: 8080

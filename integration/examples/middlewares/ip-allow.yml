@@ -1,0 +1,13 @@
+# The ipAllow middleware is usedto restrict access to a serviceto
+# requests originating from certain IPs.
+
+services:
+  service:
+    host: example.com
+    redirect: "https://example.com"
+    middlewares:
+      ipAllow:
+        - 172.0.0.1
+        - 10.9.0.0/24 # CIDR notation is supported!
+        - 192.168.1.7
+        # Any client IP that does not match the above list will not be proxied!

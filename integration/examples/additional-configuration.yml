@@ -1,0 +1,9 @@
+services:
+  # ...
+
+# voltproxy's logging behavior can be customized!
+log:
+  level: "info" # Can be debug, info, warn, or error (Default: info).
+  handler: "text" # Can be text or json (Default: text).
+
+readTimeout: 0s # No timeout (Default: 0s).

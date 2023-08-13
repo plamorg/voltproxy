@@ -1,0 +1,27 @@
+# If either foo or bar are down (checked via health status), the load balancer would
+# try forward the request to another service in the pool.
+
+services:
+  foo:
+    redirect: "https://example.com"
+    health:
+      path: "/health" # Default: "/"
+      tls: true # Default: false
+      interval: 5s # Default: 30s
+
+      # How long to wait for a response until the service is marked as unhealthy.
+      timeout: 300ms # Default: 5s
+      method: "POST" # Default: GET
+
+  failover:
+    host: lb.example.com
+    loadBalancer:
+      serviceNames: ["foo", "bar", "baz"]
+
+  bar:
+    redirect: "http://172.24.0.2:8080"
+    health:
+      interval: 15s
+  baz:
+    redirect: "http://172.30.0.4:3000"
+    # No health checking specified, baz is assumed to be always healthy

@@ -1,0 +1,27 @@
+services:
+  foo:
+    host: example.com
+    redirect: "https://example.com"
+    middlewares:
+      authForward: &customAuth # YAML anchor.
+        address: "https://auth.example.com"
+        requestHeaders: ["Some-Header"]
+        responseHeaders: ["Remote-User", "Remote-Email"]
+        xForwarded: true
+
+  bar:
+    host: bar.example.com
+    tls: true
+    container:
+      name: "/container1"
+      network: "network1"
+      port: 8080
+    middlewares:
+      # Multiple middlewares can be added to the same service!
+      # bar has multiple middlwares attached, which will be run in the order they are defined in this configuration.
+
+      # YAML alias is used here to avoid repeating the auth definition.
+      authForward: *customAuth
+      ipAllow:
+        - 172.0.1.0
+        - 192.168.1.1

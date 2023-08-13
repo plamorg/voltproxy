@@ -1,0 +1,19 @@
+# Load balancing can be used to distribute requests to multiple service endpoints.
+
+services:
+  myLoadBalancer:
+    host: lb.example.com
+    loadBalancer:
+      # Optionally enable session persistence (implemented with cookies).
+      # If this is set, cookies will be used to ensure a client will keep connecting to the same server.
+      # Cookies are overriden if the service fails health check.
+      persistent: true # Default: false.
+
+      strategy: random # Default: roundRobin.
+      serviceNames: ["server1", "server2"]
+  server1:
+    host: server1.example.com
+    redirect: "http://172.30.0.4:3000"
+  server2:
+    # No host specified, so server2 is only accessible through myLoadBalancer.
+    redirect: "http://172.24.0.2:8080"

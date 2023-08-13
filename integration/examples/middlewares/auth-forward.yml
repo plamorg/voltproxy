@@ -1,0 +1,42 @@
+# The authForward middleware is used to forward certain headers to and from an external authentication service.
+# Access is granted if the authentication service responds with a 2xx status code.
+
+services:
+  secureService:
+    host: private.example.com
+    redirect: "http://172.1.2.3:1234"
+    middlewares:
+      authForward:
+        # The address of the authentication server.
+        address: "https://auth.example.com"
+
+        # The headers to forward from the original request to the authentication server.
+        # If unspecified, all headers will be forwarded.
+        requestHeaders: ["Some-Header"]
+
+        # The headers to forward from the authentication server to the service.
+        responseHeaders: ["Remote-User", "Remote-Email"]
+
+        # Forward X-Forwarded-* headers to the authentication server.
+        xForwarded: true # Default: false.
+
+  # The authForward middleware allows the use of external authenticators like Authelia to work with voltproxy proxied services.
+  # Here is an example:
+  # 1. Firstly (and optionally), proxy the authelia service:
+  authelia:
+    host: authelia.example.com
+    tls: true
+    redirect: "http://172.22.0.2:9091"
+
+  # 2. Proxy the service you want to protect with Authelia.
+  protected:
+    host: protected.example.com
+    tls: true
+    redirect: "http://localhost:3000"
+    middlewares:
+      # Specify authForward middleware on the to-be-protected service.
+      authForward:
+        address: "http://172.22.0.2:9091/api/verify?rd=https://authelia.example.com"
+        responseHeaders:
+          ["Remote-User", "Remote-Groups", "Remote-Name", "Remote-Email"]
+        xForwarded: true

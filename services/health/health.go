@@ -11,10 +11,10 @@ import (
 
 // Info describes a service Health capability.
 type Info struct {
-	Path     string        `yaml:"path"`
+	Path     string        `yaml:"path" default:"/"`
 	TLS      bool          `yaml:"tls"`
-	Interval time.Duration `yaml:"interval"`
-	Timeout  time.Duration `yaml:"timeout"`
+	Interval time.Duration `yaml:"interval" default:"5s"`
+	Timeout  time.Duration `yaml:"timeout" default:"30s"`
 	Method   string        `yaml:"method" default:"GET"`
 }
 
