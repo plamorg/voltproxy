@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/plamorg/voltproxy/config"
 	"github.com/plamorg/voltproxy/dockerapi"
@@ -360,10 +359,6 @@ services:
 
 	i := NewInstance(t, []byte(conf), nil)
 
-	ticker := time.NewTicker(2 * time.Millisecond)
-	defer ticker.Stop()
-	<-ticker.C
-
 	res := i.RequestHost("lb.example.com")
 	defer res.Body.Close()
 
@@ -396,10 +391,6 @@ services:
       interval: 0.5ms
       path: "/what_is_my_health"`, up.URL())
 	i := NewInstance(t, []byte(conf), nil)
-
-	ticker := time.NewTicker(2 * time.Millisecond)
-	defer ticker.Stop()
-	<-ticker.C
 
 	res := i.RequestHost("lb.example.com")
 	defer res.Body.Close()

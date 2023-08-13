@@ -85,7 +85,6 @@ func (h *Health) Up() bool {
 func (h *Health) Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) (*url.URL, error)) {
 	ticker := time.NewTicker(h.Interval)
 	for {
-		<-ticker.C
 		w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil)
 		remote, err := remoteFunc(w, r)
 		if err != nil {
@@ -98,6 +97,8 @@ func (h *Health) Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) 
 		status, err := h.requestStatus(healthRemote)
 		h.res = Result{Endpoint: healthRemote.String(), Status: status, Err: err}
 		h.c <- h.res
+
+		<-ticker.C
 	}
 }
 
