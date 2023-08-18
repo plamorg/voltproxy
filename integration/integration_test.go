@@ -447,38 +447,3 @@ services:
 		}
 	}
 }
-
-func TestLoadBalancerFailoverWithMissingContainer(t *testing.T) {
-	noContainers := []dockerapi.Container{}
-
-	expectedCode := http.StatusTeapot
-	bar := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(expectedCode)
-	})
-	_, barPort := bar.SplitHostPort()
-
-	conf := fmt.Sprintf(`
-services:
-  lb:
-    host: lb.example.com
-    loadBalancer:
-      persistent: true
-      strategy: failover
-      serviceNames: ["foo", "bar"]
-  foo:
-    container:
-      name: "/foo"
-      network: "bar"
-      port: %s
-  bar:
-    redirect: "%s"`, barPort, bar.URL())
-
-	i := NewInstance(t, []byte(conf), noContainers)
-
-	res := i.RequestHost("lb.example.com")
-	defer res.Body.Close()
-
-	if res.StatusCode != expectedCode {
-		t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
-	}
-}

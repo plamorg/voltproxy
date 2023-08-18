@@ -77,18 +77,10 @@ func (l *LoadBalancer) Data() *Data {
 }
 
 // nextService uses the attached selection strategy to select the next server that is healthy.
-func (l *LoadBalancer) nextService(w http.ResponseWriter, r *http.Request) uint {
-	poolSize := len(l.services)
+func (l *LoadBalancer) nextService() uint {
 	next := l.strategy.Select()
-
-	for poolSize > 1 {
-		isHealthy := l.services[next].Data().Health.Up()
-		_, err := l.services[next].Remote(w, r)
-		hasRemote := err == nil
-		if isHealthy && hasRemote {
-			return next
-		}
-
+	poolSize := len(l.services)
+	for poolSize > 1 && !l.services[next].Data().Health.Up() {
 		l.services = append(l.services[:next], l.services[next+1:]...)
 		poolSize--
 		strategy := selection.NewStrategy(l.info.Strategy, uint(poolSize))
@@ -104,7 +96,7 @@ func (l *LoadBalancer) persistentService(w http.ResponseWriter, r *http.Request)
 			return l.services[cookieNext].Remote(w, r)
 		}
 	}
-	next := l.nextService(w, r)
+	next := l.nextService()
 	cookie := &http.Cookie{
 		Name:     l.cookieName,
 		Value:    fmt.Sprint(next),
@@ -119,7 +111,7 @@ func (l *LoadBalancer) Remote(w http.ResponseWriter, r *http.Request) (*url.URL,
 	if l.info.Persistent {
 		return l.persistentService(w, r)
 	}
-	next := l.nextService(w, r)
+	next := l.nextService()
 	return l.services[next].Remote(w, r)
 }
 
