@@ -138,7 +138,7 @@ func TestLoadBalancerNextService(t *testing.T) {
 				services: test.services,
 				strategy: selection.NewRoundRobin(uint(len(test.services))),
 			}
-			next := lb.nextService()
+			next := lb.nextService(nil, nil)
 			host := test.services[next].Data().Host
 			if host != test.expectedHost {
 				t.Fatalf("expected %s, got %s", test.expectedHost, host)
