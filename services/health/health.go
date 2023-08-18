@@ -93,6 +93,7 @@ func (h *Health) Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) 
 			h.res = Result{Up: false, Endpoint: "", Err: err}
 			h.resMutex.Unlock()
 			h.c <- h.res
+			<-ticker.C
 			continue
 		}
 
@@ -103,7 +104,6 @@ func (h *Health) Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) 
 		h.res = Result{Up: up, Endpoint: healthRemote.String(), Err: err}
 		h.resMutex.Unlock()
 		h.c <- h.res
-
 		<-ticker.C
 	}
 }
