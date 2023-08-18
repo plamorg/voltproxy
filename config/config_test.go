@@ -327,12 +327,12 @@ func TestConfigServiceList(t *testing.T) {
 		err      error
 	}{
 		"no services": {
-			Config{},
-			nil,
-			nil,
+			conf:     Config{},
+			expected: nil,
+			err:      nil,
 		},
 		"one redirect": {
-			Config{
+			conf: Config{
 				Services: serviceMap{
 					"a": {
 						Host:     "a",
@@ -340,13 +340,19 @@ func TestConfigServiceList(t *testing.T) {
 					},
 				},
 			},
-			services.List{
-				services.NewRedirect(services.Data{Host: "a"}, "b"),
+			expected: services.List{
+				services.NewRedirect(
+					services.Data{
+						Host:   "a",
+						Health: health.Always(true),
+					},
+					"b",
+				),
 			},
-			nil,
+			err: nil,
 		},
 		"with middleware": {
-			Config{
+			conf: Config{
 				Services: serviceMap{
 					"a": {
 						Host: "a",
@@ -357,13 +363,17 @@ func TestConfigServiceList(t *testing.T) {
 					},
 				},
 			},
-			services.List{
-				services.NewRedirect(services.Data{
-					Host:        "a",
-					Middlewares: []middlewares.Middleware{middlewares.NewIPAllow(nil)},
-				}, "b"),
+			expected: services.List{
+				services.NewRedirect(
+					services.Data{
+						Host:        "a",
+						Middlewares: []middlewares.Middleware{middlewares.NewIPAllow(nil)},
+						Health:      health.Always(true),
+					},
+					"b",
+				),
 			},
-			nil,
+			err: nil,
 		},
 	}
 
@@ -406,7 +416,7 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 	}
 
 	expectedServices := services.List{
-		services.NewContainer(services.Data{Host: "a"}, dockerMock, services.ContainerInfo{
+		services.NewContainer(services.Data{Host: "a", Health: health.Always(true)}, dockerMock, services.ContainerInfo{
 			Name:    "b",
 			Network: "c",
 			Port:    1234,

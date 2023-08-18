@@ -9,7 +9,11 @@ services:
       # Cookies are overriden if the service fails health check.
       persistent: true # Default: false.
 
-      strategy: random # Default: roundRobin.
+      strategy: random # Can be random, roundRobin, or failover. Default: roundRobin.
+      # random: choose a random service from the pool.
+      # roundRobin: choose service in a cyclic manner.
+      # failover: always choose the first service (still respects health checks).
+
       serviceNames: ["server1", "server2"]
   server1:
     host: server1.example.com

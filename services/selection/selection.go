@@ -19,6 +19,8 @@ func NewStrategy(strategy string, max uint) Strategy {
 		return NewRoundRobin(max)
 	case "random":
 		return NewRandom(max)
+	case "failover":
+		return NewFailover(max)
 	default:
 		return nil
 	}
@@ -60,4 +62,21 @@ func NewRandom(max uint) *Random {
 // Select returns the index of the next service to use using a random strategy.
 func (r *Random) Select() uint {
 	return uint(rand.Uint64()) % r.max // #nosec
+}
+
+// Failover selects the first service.
+type Failover struct {
+	max uint
+}
+
+// NewFailover creates a new failover selection strategy.
+func NewFailover(max uint) *Failover {
+	return &Failover{
+		max: max,
+	}
+}
+
+// Select always returns the first service.
+func (f *Failover) Select() uint {
+	return 0
 }

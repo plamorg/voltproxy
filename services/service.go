@@ -47,7 +47,7 @@ type Data struct {
 	Host        string
 	TLS         bool
 	Middlewares []middlewares.Middleware
-	Health      *health.Health
+	Health      health.Checker
 }
 
 // NewData constructs a Data.
@@ -56,9 +56,11 @@ func NewData(host string, tls bool, m *middlewares.Middlewares, healthInfo *heal
 	if m != nil {
 		middlewareList = m.List()
 	}
-	var h *health.Health
+	var h health.Checker
 	if healthInfo != nil {
 		h = health.New(*healthInfo)
+	} else {
+		h = health.Always(true)
 	}
 	return Data{
 		Host:        host,
@@ -66,15 +68,6 @@ func NewData(host string, tls bool, m *middlewares.Middlewares, healthInfo *heal
 		Middlewares: middlewareList,
 		Health:      h,
 	}
-}
-
-// IsHealthy returns true if the service is healthy.
-// It assumes that a service with no health check is healthy.
-func (d *Data) IsHealthy() bool {
-	if d.Health == nil {
-		return true
-	}
-	return d.Health.Up()
 }
 
 // Service is an interface describing an arbitrary service that can be proxied.
@@ -102,20 +95,18 @@ func (l *List) LaunchHealthChecks() {
 		// See: https://github.com/golang/go/wiki/LoopvarExperiment
 		service := service
 
-		if service.Data().Health != nil {
-			logger := slog.Default().With(slog.Any("service", service.Data()))
-			go service.Data().Health.Launch(service.Remote)
-			go func() {
-				for {
-					res := <-service.Data().Health.Check()
-					if res.Err != nil || !service.Data().Health.Up() {
-						logger.Warn("Failed health check", slog.Any("result", res))
-					} else {
-						logger.Debug("Successful Health check", slog.Any("result", res))
-					}
+		logger := slog.Default().With(slog.Any("service", service.Data()))
+		go service.Data().Health.Launch(service.Remote)
+		go func() {
+			for {
+				res := <-service.Data().Health.Check()
+				if res.Err != nil || !res.Up {
+					logger.Warn("Failed health check", slog.Any("result", res))
+				} else {
+					logger.Debug("Successful Health check", slog.Any("result", res))
 				}
-			}()
-		}
+			}
+		}()
 	}
 }
 

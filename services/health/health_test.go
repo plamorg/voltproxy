@@ -118,9 +118,9 @@ func TestHealthLaunchBadMethod(t *testing.T) {
 
 	go health.Launch(remoteFunc(&remote, nil))
 
-	<-health.c
-	if health.Up() {
-		t.Errorf("expected false, got %v", health.Up())
+	res := <-health.c
+	if res.Err == nil {
+		t.Error("expected error, got nil")
 	}
 }
 
@@ -135,9 +135,9 @@ func TestHealthLaunchBadRequest(t *testing.T) {
 
 	go health.Launch(remoteFunc(&remote, nil))
 
-	<-health.c
-	if health.Up() {
-		t.Errorf("expected false, got %v", health.Up())
+	res := <-health.c
+	if res.Err == nil {
+		t.Error("expected error, got nil")
 	}
 }
 
@@ -148,7 +148,7 @@ func TestHealthLaunchFailedRemote(t *testing.T) {
 	go health.Launch(remoteFunc(nil, expectedErr))
 
 	res := <-health.c
-	expected := Result{Endpoint: "", Status: 0, Err: expectedErr}
+	expected := Result{Up: false, Endpoint: "", Err: expectedErr}
 	if !reflect.DeepEqual(res, expected) {
 		t.Errorf("expected %v, got %v", expected, res)
 	}
@@ -195,8 +195,8 @@ func TestHealthLaunch(t *testing.T) {
 			results := make([]bool, 0)
 
 			for {
-				<-health.c
-				results = append(results, health.Up())
+				res := <-health.c
+				results = append(results, res.Up)
 				if len(results) == len(test.expected) {
 					break
 				}

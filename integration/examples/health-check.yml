@@ -16,6 +16,7 @@ services:
   failover:
     host: lb.example.com
     loadBalancer:
+      strategy: failover
       serviceNames: ["foo", "bar", "baz"]
 
   bar:

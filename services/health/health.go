@@ -28,7 +28,7 @@ type Info struct {
 
 // Result is the result of a health check.
 type Result struct {
-	Status   int
+	Up       bool
 	Err      error
 	Endpoint string
 }
@@ -36,14 +36,22 @@ type Result struct {
 // LogValue returns a slog.Value for the result, ensuring that the error is displayed properly.
 func (h Result) LogValue() slog.Value {
 	return slog.GroupValue(
-		slog.Int("status", h.Status),
+		slog.Bool("up", h.Up),
 		slog.Any("error", h.Err),
 		slog.String("endpoint", h.Endpoint))
+}
+
+// Checker is the interface that wraps the basic methods for a health checker.
+type Checker interface {
+	Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) (*url.URL, error))
+	Up() bool
+	Check() <-chan Result
 }
 
 // Health periodically checks the health of a service.
 type Health struct {
 	Info
+	http.Handler
 
 	c        chan Result
 	resMutex sync.RWMutex
@@ -68,20 +76,8 @@ func New(info Info) *Health {
 		Info:     info,
 		c:        make(chan Result),
 		resMutex: sync.RWMutex{},
-		res:      Result{Endpoint: "", Status: 0, Err: nil},
+		res:      Result{},
 	}
-}
-
-// Check returns a channel that will receive the health result on each check.
-func (h *Health) Check() <-chan Result {
-	return h.c
-}
-
-// Up returns the current health status.
-func (h *Health) Up() bool {
-	h.resMutex.RLock()
-	defer h.resMutex.RUnlock()
-	return h.res.Status >= http.StatusOK && h.res.Status < http.StatusBadRequest
 }
 
 // Launch starts the periodic health check.
@@ -94,7 +90,7 @@ func (h *Health) Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) 
 		remote, err := remoteFunc(w, r)
 		if err != nil {
 			h.resMutex.Lock()
-			h.res = Result{Endpoint: "", Status: 0, Err: err}
+			h.res = Result{Up: false, Endpoint: "", Err: err}
 			h.resMutex.Unlock()
 			h.c <- h.res
 			continue
@@ -102,13 +98,26 @@ func (h *Health) Launch(remoteFunc func(w http.ResponseWriter, r *http.Request) 
 
 		healthRemote := constructHealthRemote(remote, h.Path, h.TLS)
 		status, err := h.requestStatus(healthRemote)
+		up := status >= http.StatusOK && status < http.StatusBadRequest
 		h.resMutex.Lock()
-		h.res = Result{Endpoint: healthRemote.String(), Status: status, Err: err}
+		h.res = Result{Up: up, Endpoint: healthRemote.String(), Err: err}
 		h.resMutex.Unlock()
 		h.c <- h.res
 
 		<-ticker.C
 	}
+}
+
+// Up returns whether the service is up.
+func (h *Health) Up() bool {
+	h.resMutex.RLock()
+	defer h.resMutex.RUnlock()
+	return h.res.Up
+}
+
+// Check returns a channel that will receive the health result on each check.
+func (h *Health) Check() <-chan Result {
+	return h.c
 }
 
 func constructHealthRemote(remote *url.URL, path string, tls bool) *url.URL {
