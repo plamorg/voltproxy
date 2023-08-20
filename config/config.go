@@ -4,6 +4,8 @@ package config
 import (
 	"bytes"
 	"fmt"
+	"net/url"
+	"reflect"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -22,13 +24,48 @@ var (
 	errDuplicateHost      = fmt.Errorf("duplicate host")
 )
 
+type containerInfo struct {
+	Name    string `yaml:"name"`
+	Network string `yaml:"network"`
+	Port    uint16 `yaml:"port"`
+}
+
+type loadBalancerInfo struct {
+	ServiceNames []string `yaml:"serviceNames"`
+	Strategy     string   `yaml:"strategy"`
+	Persistent   bool     `yaml:"persistent"`
+}
+
+type routers struct {
+	Container *containerInfo `yaml:"container"`
+
+	Redirect string `yaml:"redirect"`
+
+	LoadBalancer *loadBalancerInfo `yaml:"loadBalancer"`
+}
+
+func (r *routers) validate() bool {
+	v := reflect.ValueOf(*r)
+	count := 0
+	for i := 0; i < v.NumField(); i++ {
+		if v.Field(i).IsZero() {
+			continue
+		}
+		if count > 0 {
+			return false
+		}
+		count++
+	}
+	return count == 1
+}
+
 type serviceMap map[string]struct {
 	Host        string                   `yaml:"host"`
 	TLS         bool                     `yaml:"tls"`
 	Middlewares *middlewares.Middlewares `yaml:"middlewares"`
 	Health      *health.Info             `yaml:"health"`
 
-	services.Services `yaml:",inline"`
+	routers `yaml:",inline"`
 }
 
 // Config represents a listing of services to proxy.
@@ -43,7 +80,7 @@ type Config struct {
 func (s *serviceMap) validate() error {
 	hosts := make(map[string]bool)
 	for name, service := range *s {
-		if !service.Services.Validate() {
+		if !service.routers.validate() {
 			return fmt.Errorf("%s: %w", name, errMustHaveOneService)
 		}
 		// Allow empty host for services. This is useful for services that
@@ -74,45 +111,80 @@ func Parse(data []byte) (*Config, error) {
 	return &config, nil
 }
 
-// ServiceList returns a list of services from the config.
-func (c *Config) ServiceList(docker dockerapi.Docker) (services.List, error) {
-	m := make(map[string]services.Service)
+// ServiceMap returns a mapping from hosts to services.
+func (c *Config) ServiceMap(docker dockerapi.Docker) (map[string]services.Service, error) {
+	nameService := make(map[string]services.Service)
 	for name, service := range c.Services {
 		if service.LoadBalancer != nil {
 			continue
 		}
-		data := services.NewData(service.Host, service.TLS, service.Middlewares, service.Health)
+		var router services.Router
 		if service.Container != nil {
-			m[name] = services.NewContainer(data, docker, *service.Container)
+			router = services.NewContainer(
+				service.Container.Name,
+				service.Container.Network,
+				service.Container.Port,
+				docker,
+			)
 		} else if service.Redirect != "" {
-			m[name] = services.NewRedirect(data, service.Redirect)
+			remote, err := url.Parse(service.Redirect)
+			if err != nil {
+				return nil, fmt.Errorf("%w: %s: %w", errInvalidConfig, name, err)
+			}
+			router = services.NewRedirect(*remote)
+		}
+		var checker health.Checker
+		if service.Health != nil {
+			checker = health.New(*service.Health)
+		} else {
+			checker = health.Always(true)
+		}
+		nameService[name] = services.Service{
+			TLS:         service.TLS,
+			Middlewares: service.Middlewares.List(),
+			Health:      checker,
+			Router:      router,
 		}
 	}
 
 	for name, service := range c.Services {
 		if service.LoadBalancer != nil {
-			var lbServices services.List
+			var lbServices []services.Service
+
 			for _, serviceName := range service.LoadBalancer.ServiceNames {
-				if s, ok := m[serviceName]; ok {
+				if s, ok := nameService[serviceName]; ok {
 					lbServices = append(lbServices, s)
 				} else {
 					return nil, fmt.Errorf("%w: %s: %w %s", errInvalidConfig, name, errNoServiceWithName, serviceName)
 				}
 			}
-			data := services.NewData(service.Host, service.TLS, service.Middlewares, service.Health)
-			lb, err := services.NewLoadBalancer(data, lbServices, *service.LoadBalancer)
+
+			strategy, err := services.NewStrategy(service.LoadBalancer.Strategy)
 			if err != nil {
 				return nil, fmt.Errorf("%w: %s: %w", errInvalidConfig, name, err)
 			}
-			m[name] = lb
+
+			lb := services.NewLoadBalancer(service.Host, strategy, service.LoadBalancer.Persistent, lbServices)
+			var checker health.Checker
+			if service.Health != nil {
+				checker = health.New(*service.Health)
+			} else {
+				checker = health.Always(true)
+			}
+			nameService[name] = services.Service{
+				TLS:         service.TLS,
+				Middlewares: service.Middlewares.List(),
+				Health:      checker,
+				Router:      lb,
+			}
 		}
 	}
 
-	var l services.List
-	for _, service := range m {
-		l = append(l, service)
+	m := make(map[string]services.Service)
+	for name, service := range c.Services {
+		m[service.Host] = nameService[name]
 	}
-	return l, nil
+	return m, nil
 }
 
 // TLSHosts returns a list of hosts that require TLS.

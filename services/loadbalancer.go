@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-
-	"github.com/plamorg/voltproxy/services/selection"
 )
 
 const (
@@ -17,33 +15,13 @@ const (
 	lbCookieBitSize    = 64
 )
 
-var (
-	// ErrInvalidStrategy is returned when an unexpected strategy string is specified.
-	errInvalidStrategy = fmt.Errorf("invalid strategy")
-	// ErrNoServicesSpecified is returned when the number of services is zero.
-	errNoServicesSpecified = fmt.Errorf("no services specified")
-)
-
-// LoadBalancerInfo is the information needed to create a load balancer.
-type LoadBalancerInfo struct {
-	Strategy string `yaml:"strategy"`
-
-	// Persistent is a flag that determines if the load balancer should persist the same
-	// service for the same client.
-	Persistent bool `yaml:"persistent"`
-
-	ServiceNames []string `yaml:"serviceNames"`
-}
-
 // LoadBalancer is a service that load balances between other services.
 type LoadBalancer struct {
-	data Data
-
-	strategy   selection.Strategy
-	services   []Service
 	cookieName string
 
-	info LoadBalancerInfo
+	strategy   Strategy
+	persistent bool
+	services   []Service
 }
 
 func generateCookieName(host string) string {
@@ -54,67 +32,39 @@ func generateCookieName(host string) string {
 }
 
 // NewLoadBalancer creates a new load balancer service.
-func NewLoadBalancer(data Data, services []Service, info LoadBalancerInfo) (*LoadBalancer, error) {
-	if len(services) == 0 {
-		return nil, errNoServicesSpecified
-	}
-	s := selection.NewStrategy(info.Strategy, uint(len(services)))
-	if s == nil {
-		return nil, errInvalidStrategy
-	}
+func NewLoadBalancer(host string, strategy Strategy, persistent bool, services []Service) *LoadBalancer {
 	return &LoadBalancer{
-		data:       data,
-		strategy:   s,
+		cookieName: generateCookieName(host),
+		strategy:   strategy,
+		persistent: persistent,
 		services:   services,
-		cookieName: generateCookieName(data.Host),
-		info:       info,
-	}, nil
-}
-
-// Data returns the data of the load balancer service.
-func (l *LoadBalancer) Data() *Data {
-	return &l.data
-}
-
-// nextService uses the attached selection strategy to select the next server that is healthy.
-func (l *LoadBalancer) nextService() uint {
-	services := l.services
-
-	next := l.strategy.Select()
-	poolSize := len(l.services)
-	for poolSize > 1 && !services[next].Data().Health.Up() {
-		services = append(services[:next], services[next+1:]...)
-		poolSize--
-		strategy := selection.NewStrategy(l.info.Strategy, uint(poolSize))
-		next = strategy.Select()
 	}
-	return next
 }
 
 func (l *LoadBalancer) persistentService(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
 	if cookie, err := r.Cookie(l.cookieName); err == nil {
 		cookieNext, err := strconv.ParseUint(cookie.Value, lbCookieBase, lbCookieBitSize)
-		if err == nil && l.services[cookieNext].Data().Health.Up() {
-			return l.services[cookieNext].Remote(w, r)
+		if err == nil && l.services[cookieNext].Health.Up() {
+			return l.services[cookieNext].Router.Route(w, r)
 		}
 	}
-	next := l.nextService()
+	next := l.strategy.Select(l.services, r)
 	cookie := &http.Cookie{
 		Name:     l.cookieName,
 		Value:    fmt.Sprint(next),
 		HttpOnly: true,
 	}
 	http.SetCookie(w, cookie)
-	return l.services[next].Remote(w, r)
+	return l.services[next].Router.Route(w, r)
 }
 
-// Remote returns the remote URL of the next service in the load balancer.
-func (l *LoadBalancer) Remote(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
-	if l.info.Persistent {
+// Route returns the remote URL of the next service in the load balancer.
+func (l *LoadBalancer) Route(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
+	if l.persistent {
 		return l.persistentService(w, r)
 	}
-	next := l.nextService()
-	return l.services[next].Remote(w, r)
+	next := l.strategy.Select(l.services, r)
+	return l.services[next].Router.Route(w, r)
 }
 
-var _ Service = (*LoadBalancer)(nil)
+var _ Router = (*LoadBalancer)(nil)

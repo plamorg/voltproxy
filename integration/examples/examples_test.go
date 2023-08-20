@@ -32,7 +32,7 @@ func TestExamples(t *testing.T) {
 			}
 
 			docker := dockerapi.NewMock()
-			_, err = conf.ServiceList(docker)
+			_, err = conf.ServiceMap(docker)
 			if err != nil {
 				t.Fatal(err)
 			}

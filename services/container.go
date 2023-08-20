@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
@@ -8,50 +9,43 @@ import (
 	"github.com/plamorg/voltproxy/dockerapi"
 )
 
-// ContainerInfo is the information needed to find a container.
-type ContainerInfo struct {
-	Name    string `yaml:"name"`
-	Network string `yaml:"network"`
-	Port    uint16 `yaml:"port"`
-}
+var (
+	errNoContainerFound = fmt.Errorf("no container found")
+	errNoNetworkFound   = fmt.Errorf("no network found")
+)
 
 // Container is a service that is running in a Docker container.
 type Container struct {
-	data Data
+	name    string
+	network string
+	port    uint16
 
 	docker *dockerapi.Docker
-	info   ContainerInfo
 }
 
 // NewContainer creates a new service from a docker container.
-func NewContainer(data Data, docker dockerapi.Docker, info ContainerInfo) *Container {
+func NewContainer(name string, network string, port uint16, docker dockerapi.Docker) *Container {
 	return &Container{
-		data:   data,
-		docker: &docker,
-		info:   info,
+		name:    name,
+		network: network,
+		port:    port,
+		docker:  &docker,
 	}
 }
 
-// Data returns the data of the Container service.
-func (c *Container) Data() *Data {
-	return &c.data
-}
-
-// Remote iterates through the list of containers and returns the remote of the matching container by name.
-func (c *Container) Remote(_ http.ResponseWriter, _ *http.Request) (*url.URL, error) {
+// Route iterates through the list of containers and returns the remote of the matching container by name.
+func (c *Container) Route(_ http.ResponseWriter, _ *http.Request) (*url.URL, error) {
 	containers, err := (*c.docker).ContainerList()
 	if err != nil {
 		return nil, err
 	}
 	for _, container := range containers {
-		if slices.Contains(container.Names, c.info.Name) {
-			if ip, ok := container.Networks[c.info.Network]; ok {
-				return url.Parse(ip.URL(c.info.Port))
+		if slices.Contains(container.Names, c.name) {
+			if ip, ok := container.Networks[c.network]; ok {
+				return url.Parse(ip.URL(c.port))
 			}
-			return nil, errNoServiceFound
+			return nil, errNoNetworkFound
 		}
 	}
-	return nil, errNoServiceFound
+	return nil, errNoContainerFound
 }
-
-var _ Service = (*Container)(nil)

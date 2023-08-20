@@ -14,6 +14,9 @@ type Middlewares struct {
 
 // List returns a list of middlewares that are not nil.
 func (c *Middlewares) List() []Middleware {
+	if c == nil {
+		return nil
+	}
 	var m []Middleware
 	v := reflect.ValueOf(*c)
 	for i := 0; i < v.NumField(); i++ {

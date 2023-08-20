@@ -12,6 +12,7 @@ import (
 
 	"github.com/plamorg/voltproxy/config"
 	"github.com/plamorg/voltproxy/dockerapi"
+	"github.com/plamorg/voltproxy/services"
 )
 
 func listen(handler http.Handler, timeout time.Duration) {
@@ -63,14 +64,14 @@ func main() {
 	}
 	slog.Info("Created Docker client", slog.Any("client", docker))
 
-	services, err := conf.ServiceList(docker)
+	serviceMap, err := conf.ServiceMap(docker)
 	if err != nil {
 		slog.Error("Error while creating service list", slog.Any("error", err))
 		os.Exit(1)
 	}
-	slog.Info("Created service list", slog.Int("count", len(services)))
+	slog.Info("Created service list", slog.Int("count", len(serviceMap)))
 
-	services.LaunchHealthChecks()
+	services.LaunchHealthChecks(serviceMap)
 
 	tlsHosts := conf.TLSHosts()
 	slog.Info("Managing certificates for hosts", slog.Any("hosts", tlsHosts))
@@ -82,6 +83,6 @@ func main() {
 
 	slog.Info("Listening...", slog.String("readTimeout", conf.ReadTimeout.String()))
 
-	go listen(certManager.HTTPHandler(services.Handler()), conf.ReadTimeout)
-	listenTLS(services.TLSHandler(), conf.ReadTimeout, certManager.TLSConfig())
+	go listen(certManager.HTTPHandler(services.Handler(serviceMap)), conf.ReadTimeout)
+	listenTLS(services.TLSHandler(serviceMap), conf.ReadTimeout, certManager.TLSConfig())
 }

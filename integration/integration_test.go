@@ -3,20 +3,12 @@ package integration
 import (
 	"context"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
-	"os"
+	"slices"
 	"testing"
 
 	"github.com/plamorg/voltproxy/dockerapi"
 )
-
-func TestMain(m *testing.M) {
-	// Silence log output.
-	log.SetOutput(io.Discard)
-	os.Exit(m.Run())
-}
 
 func TestSimpleHTTP(t *testing.T) {
 	expectedCode := http.StatusAccepted
@@ -144,7 +136,7 @@ services:
 	res := i.RequestHost("container.example.com")
 	defer res.Body.Close()
 
-	expectedStatus := http.StatusNotFound
+	expectedStatus := http.StatusInternalServerError
 	if res.StatusCode != expectedStatus {
 		t.Fatalf("expected status code %d, got %d", expectedStatus, res.StatusCode)
 	}
@@ -436,14 +428,21 @@ services:
 		[]dockerapi.Container{container}, // Containers on fourth request.
 	)
 
-	expected := []int{http.StatusAccepted, http.StatusNotFound, http.StatusAccepted, http.StatusAccepted}
+	expected := []int{
+		http.StatusAccepted,
+		http.StatusInternalServerError,
+		http.StatusAccepted,
+		http.StatusAccepted,
+	}
 
-	for _, expectedCode := range expected {
+	received := make([]int, 0, len(expected))
+	for range expected {
 		res := i.RequestHost("server.example.com")
 		defer res.Body.Close()
+		received = append(received, res.StatusCode)
+	}
 
-		if res.StatusCode != expectedCode {
-			t.Fatalf("expected status code %d, got %d", expectedCode, res.StatusCode)
-		}
+	if !slices.Equal(expected, received) {
+		t.Fatalf("expected status codes %v, got %v", expected, received)
 	}
 }

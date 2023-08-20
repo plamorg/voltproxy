@@ -8,7 +8,7 @@ import (
 	"github.com/plamorg/voltproxy/dockerapi"
 )
 
-func TestContainerRemoteSuccess(t *testing.T) {
+func TestContainerRouteSuccess(t *testing.T) {
 	dockerMock := dockerapi.NewMock([]dockerapi.Container{
 		{
 			Names: []string{"another", "test"},
@@ -18,29 +18,26 @@ func TestContainerRemoteSuccess(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(Data{Host: "host"}, dockerMock, ContainerInfo{
-		Name:    "test",
-		Network: "net",
-		Port:    1234,
-	})
+	container := NewContainer("test", "net", 1234, dockerMock)
 
-	expectedRemote := "http://127.0.0.1:1234"
-
-	remote, err := container.Remote(nil, nil)
+	route, err := container.Route(nil, nil)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
 
-	if remote == nil {
+	if route == nil {
 		t.Fatalf("expected non-nil remote")
 	}
 
-	if remote.String() != expectedRemote {
-		t.Errorf("expected %s, got %s", expectedRemote, remote.String())
+	expectedRemote := "http://127.0.0.1:1234"
+	if route.String() != expectedRemote {
+		t.Errorf("expected %s, got %s", expectedRemote, route.String())
 	}
 }
 
-func TestContainerRemoteNotInNetwork(t *testing.T) {
+// TODO: Combine these error tests into one testing function.
+
+func TestContainerRouteNotInNetwork(t *testing.T) {
 	dockerMock := dockerapi.NewMock([]dockerapi.Container{
 		{
 			Names: []string{"test"},
@@ -51,20 +48,16 @@ func TestContainerRemoteNotInNetwork(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(Data{Host: "host"}, dockerMock, ContainerInfo{
-		Name:    "test",
-		Network: "net",
-		Port:    25565,
-	})
+	container := NewContainer("test", "net", 25565, dockerMock)
 
-	_, err := container.Remote(nil, nil)
+	_, err := container.Route(nil, nil)
 
-	if !errors.Is(err, errNoServiceFound) {
-		t.Errorf("expected error %v, got %v", errNoServiceFound, err)
+	if !errors.Is(err, errNoNetworkFound) {
+		t.Errorf("expected error %v, got %v", errNoNetworkFound, err)
 	}
 }
 
-func TestContainerRemoteNoMatchingContainer(t *testing.T) {
+func TestContainerRouteNoMatchingContainer(t *testing.T) {
 	dockerMock := dockerapi.NewMock([]dockerapi.Container{
 		{
 			Names: []string{"foo", "bar", ""},
@@ -80,16 +73,12 @@ func TestContainerRemoteNoMatchingContainer(t *testing.T) {
 		},
 	})
 
-	container := NewContainer(Data{Host: "host"}, dockerMock, ContainerInfo{
-		Name:    "test",
-		Network: "net",
-		Port:    4321,
-	})
+	container := NewContainer("test", "net", 4321, dockerMock)
 
-	_, err := container.Remote(nil, nil)
+	_, err := container.Route(nil, nil)
 
-	if !errors.Is(err, errNoServiceFound) {
-		t.Errorf("expected error %v, got %v", errNoServiceFound, err)
+	if !errors.Is(err, errNoContainerFound) {
+		t.Errorf("expected error %v, got %v", errNoContainerFound, err)
 	}
 }
 
@@ -101,14 +90,10 @@ func (badDocker) ContainerList() ([]dockerapi.Container, error) {
 	return nil, errBadDocker
 }
 
-func TestContainerRemoteBadAdapter(t *testing.T) {
-	container := NewContainer(Data{Host: "host"}, badDocker{}, ContainerInfo{
-		Name:    "test",
-		Network: "net",
-		Port:    4321,
-	})
+func TestContainerRouteBadDocker(t *testing.T) {
+	container := NewContainer("test", "net", 1234, badDocker{})
 
-	_, err := container.Remote(nil, nil)
+	_, err := container.Route(nil, nil)
 
 	if !errors.Is(err, errBadDocker) {
 		t.Errorf("expected error %v, got %v", errBadDocker, err)

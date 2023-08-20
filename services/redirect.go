@@ -7,27 +7,15 @@ import (
 
 // Redirect is a service that redirects to a remote URL.
 type Redirect struct {
-	data Data
-
-	remote string
+	remote url.URL
 }
 
 // NewRedirect creates a new Redirect service.
-func NewRedirect(data Data, remote string) *Redirect {
-	return &Redirect{
-		data:   data,
-		remote: remote,
-	}
+func NewRedirect(remote url.URL) *Redirect {
+	return &Redirect{remote}
 }
 
-// Data returns the data of the Redirect service.
-func (r *Redirect) Data() *Data {
-	return &r.data
+// Route redirects to the remote URL.
+func (r *Redirect) Route(_ http.ResponseWriter, _ *http.Request) (*url.URL, error) {
+	return &r.remote, nil
 }
-
-// Remote returns the remote URL of the Redirect service.
-func (r *Redirect) Remote(_ http.ResponseWriter, _ *http.Request) (*url.URL, error) {
-	return url.Parse(r.remote)
-}
-
-var _ Service = (*Redirect)(nil)

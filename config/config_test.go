@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"net/url"
 	"reflect"
 	"slices"
 	"testing"
@@ -29,8 +30,8 @@ func TestServiceMapValidate(t *testing.T) {
 			name: "service with single service type is valid",
 			services: serviceMap{
 				"a": {
-					Host:     "b",
-					Services: services.Services{Redirect: "c"},
+					Host:    "b",
+					routers: routers{Redirect: "c"},
 				},
 			},
 			err: nil,
@@ -49,9 +50,9 @@ func TestServiceMapValidate(t *testing.T) {
 			services: serviceMap{
 				"invalid": {
 					Host: "b",
-					Services: services.Services{
+					routers: routers{
 						Redirect:  "c",
-						Container: &services.ContainerInfo{Name: "d", Network: "e", Port: 1},
+						Container: &containerInfo{Name: "d", Network: "e", Port: 1},
 					},
 				},
 			},
@@ -61,12 +62,12 @@ func TestServiceMapValidate(t *testing.T) {
 			name: "detect duplicate hosts",
 			services: serviceMap{
 				"a": {
-					Host:     "b",
-					Services: services.Services{Redirect: "c"},
+					Host:    "b",
+					routers: routers{Redirect: "c"},
 				},
 				"d": {
-					Host:     "b",
-					Services: services.Services{Redirect: "c"},
+					Host:    "b",
+					routers: routers{Redirect: "c"},
 				},
 			},
 			err: errDuplicateHost,
@@ -75,18 +76,18 @@ func TestServiceMapValidate(t *testing.T) {
 			name: "ignore duplicate host error if host is empty string",
 			services: serviceMap{
 				"empty1": {
-					Host:     "",
-					Services: services.Services{Redirect: "c"},
+					Host:    "",
+					routers: routers{Redirect: "c"},
 				},
 				"empty2": {
-					Host:     "",
-					Services: services.Services{Redirect: "c"},
+					Host:    "",
+					routers: routers{Redirect: "c"},
 				},
 				"undefined1": {
-					Services: services.Services{Redirect: "c"},
+					routers: routers{Redirect: "c"},
 				},
 				"undefined2": {
-					Services: services.Services{Redirect: "c"},
+					routers: routers{Redirect: "c"},
 				},
 			},
 			err: nil,
@@ -138,9 +139,9 @@ services:
 			expectedConfig: &Config{
 				Services: serviceMap{
 					"example": {
-						Host:     "host.example.com",
-						TLS:      false,
-						Services: services.Services{Redirect: "https://example.com"},
+						Host:    "host.example.com",
+						TLS:     false,
+						routers: routers{Redirect: "https://example.com"},
 					},
 				},
 			},
@@ -165,14 +166,14 @@ services:
 					"a": {
 						Host: "ahost",
 						TLS:  false,
-						Services: services.Services{
-							Container: &services.ContainerInfo{Name: "test", Network: "net", Port: 1234},
+						routers: routers{
+							Container: &containerInfo{Name: "test", Network: "net", Port: 1234},
 						},
 					},
 					"b": {
 						Host: "bhost",
 						TLS:  true,
-						Services: services.Services{
+						routers: routers{
 							Redirect: "https://b.example.com",
 						},
 					},
@@ -249,7 +250,7 @@ services:
 				Services: serviceMap{
 					"foo": {
 						Host: "foo.example.com",
-						Services: services.Services{
+						routers: routers{
 							Redirect: "https://foo.example.com",
 						},
 						Health: &health.Info{
@@ -305,7 +306,7 @@ services:
 						ResponseHeaders: []string{"X-Auth-Response-Header"},
 					},
 				},
-				Services: services.Services{Redirect: "https://invalid.example.com"},
+				routers: routers{Redirect: "https://invalid.example.com"},
 			},
 		},
 	}
@@ -320,34 +321,31 @@ services:
 	}
 }
 
-func TestConfigServiceList(t *testing.T) {
+func TestConfigServiceMap(t *testing.T) {
 	tests := map[string]struct {
 		conf     Config
-		expected services.List
+		expected map[string]services.Service
 		err      error
 	}{
 		"no services": {
 			conf:     Config{},
-			expected: nil,
+			expected: map[string]services.Service{},
 			err:      nil,
 		},
 		"one redirect": {
 			conf: Config{
 				Services: serviceMap{
 					"a": {
-						Host:     "a",
-						Services: services.Services{Redirect: "b"},
+						Host:    "a",
+						routers: routers{Redirect: "https://example.com"},
 					},
 				},
 			},
-			expected: services.List{
-				services.NewRedirect(
-					services.Data{
-						Host:   "a",
-						Health: health.Always(true),
-					},
-					"b",
-				),
+			expected: map[string]services.Service{
+				"a": {
+					Health: health.Always(true),
+					Router: services.NewRedirect(url.URL{Scheme: "https", Host: "example.com"}),
+				},
 			},
 			err: nil,
 		},
@@ -359,19 +357,18 @@ func TestConfigServiceList(t *testing.T) {
 						Middlewares: &middlewares.Middlewares{
 							IPAllow: middlewares.NewIPAllow(nil),
 						},
-						Services: services.Services{Redirect: "b"},
+						routers: routers{Redirect: "https://example.com"},
 					},
 				},
 			},
-			expected: services.List{
-				services.NewRedirect(
-					services.Data{
-						Host:        "a",
-						Middlewares: []middlewares.Middleware{middlewares.NewIPAllow(nil)},
-						Health:      health.Always(true),
+			expected: map[string]services.Service{
+				"a": {
+					Middlewares: []middlewares.Middleware{
+						middlewares.NewIPAllow(nil),
 					},
-					"b",
-				),
+					Health: health.Always(true),
+					Router: services.NewRedirect(url.URL{Scheme: "https", Host: "example.com"}),
+				},
 			},
 			err: nil,
 		},
@@ -379,7 +376,7 @@ func TestConfigServiceList(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			services, err := test.conf.ServiceList(dockerapi.NewMock(nil))
+			services, err := test.conf.ServiceMap(dockerapi.NewMock(nil))
 			if !errors.Is(err, test.err) {
 				t.Errorf("expected error %v got error %v", test.err, err)
 			}
@@ -391,7 +388,7 @@ func TestConfigServiceList(t *testing.T) {
 	}
 }
 
-func TestConfigServiceListWithContainers(t *testing.T) {
+func TestConfigServiceMapWithContainer(t *testing.T) {
 	containers := []dockerapi.Container{
 		{
 			Names:    []string{"b"},
@@ -404,8 +401,8 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 		Services: serviceMap{
 			"a": {
 				Host: "a",
-				Services: services.Services{
-					Container: &services.ContainerInfo{
+				routers: routers{
+					Container: &containerInfo{
 						Name:    "b",
 						Network: "c",
 						Port:    1234,
@@ -415,40 +412,35 @@ func TestConfigServiceListWithContainers(t *testing.T) {
 		},
 	}
 
-	expectedServices := services.List{
-		services.NewContainer(services.Data{Host: "a", Health: health.Always(true)}, dockerMock, services.ContainerInfo{
-			Name:    "b",
-			Network: "c",
-			Port:    1234,
-		}),
+	expectedServiceMap := map[string]services.Service{
+		"a": {
+			Health: health.Always(true),
+			Router: services.NewContainer("b", "c", 1234, dockerMock),
+		},
 	}
 
-	services, err := conf.ServiceList(dockerMock)
+	services, err := conf.ServiceMap(dockerMock)
 	if err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
 
-	if !reflect.DeepEqual(expectedServices, services) {
-		t.Errorf("expected services %v got services %v", expectedServices, services)
+	if !reflect.DeepEqual(expectedServiceMap, services) {
+		t.Errorf("expected services %v got services %v", expectedServiceMap, services)
 	}
 }
 
 func TestConfigServiceListLoadBalancerError(t *testing.T) {
 	tests := map[string]struct {
-		lbInfo services.LoadBalancerInfo
+		lbInfo loadBalancerInfo
 	}{
 		"no service with name": {
-			lbInfo: services.LoadBalancerInfo{
+			lbInfo: loadBalancerInfo{
 				ServiceNames: []string{"foo"},
 			},
 		},
-		"empty service names": {
-			lbInfo: services.LoadBalancerInfo{
-				ServiceNames: nil,
-			},
-		},
 		"invalid strategy": {
-			lbInfo: services.LoadBalancerInfo{
+			lbInfo: loadBalancerInfo{
+				Strategy:     "not a strategy",
 				ServiceNames: nil,
 			},
 		},
@@ -460,14 +452,14 @@ func TestConfigServiceListLoadBalancerError(t *testing.T) {
 				Services: serviceMap{
 					"lb": {
 						Host: "a",
-						Services: services.Services{
+						routers: routers{
 							LoadBalancer: &test.lbInfo,
 						},
 					},
 				},
 			}
 
-			_, err := conf.ServiceList(dockerapi.NewMock(nil))
+			_, err := conf.ServiceMap(dockerapi.NewMock(nil))
 
 			if !errors.Is(err, errInvalidConfig) {
 				t.Errorf("expected error %v got error %v", errInvalidConfig, err)
