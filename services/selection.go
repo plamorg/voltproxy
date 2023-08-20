@@ -23,7 +23,7 @@ func NewStrategy(strategy string) (Strategy, error) {
 	case "roundRobin", "":
 		return &RoundRobin{next: 0}, nil
 	case "random":
-		return &Random{}, nil
+		return &Random{rng: rand.Intn}, nil
 	default:
 		return nil, errInvalidStrategy
 	}
@@ -59,15 +59,20 @@ func (r *RoundRobin) Select(services []Service, _ *http.Request) int {
 }
 
 // Random is a random selection strategy.
-type Random struct{}
+type Random struct {
+	rng func(int) int
+}
 
 // Select returns the index of the next service to use using a random strategy.
 func (r *Random) Select(services []Service, _ *http.Request) int {
+	if len(services) == 0 {
+		return 0
+	}
 	var validIndices []int
 	for i, item := range services {
 		if item.Health.Up() {
 			validIndices = append(validIndices, i)
 		}
 	}
-	return rand.Intn(len(validIndices)) // #nosec
+	return validIndices[r.rng(len(validIndices))]
 }
