@@ -1,11 +1,14 @@
 package services
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+
+	"github.com/plamorg/voltproxy/middlewares"
 )
 
 func TestHandlerSuccess(t *testing.T) {
@@ -39,25 +42,58 @@ func TestHandlerSuccess(t *testing.T) {
 	}
 }
 
-func TestHandlerServiceNotFound(t *testing.T) {
+type badRouter struct{}
+
+func (b badRouter) Route(_ http.ResponseWriter, _ *http.Request) (*url.URL, error) {
+	return nil, fmt.Errorf("bad router")
+}
+
+func TestHandlerErrors(t *testing.T) {
 	services := map[string]Service{
 		"foo.example.com": {},
+		"bad.example.com": {
+			Router: badRouter{},
+		},
+	}
+	tests := map[string]struct {
+		handler      http.Handler
+		target       string
+		expectedCode int
+	}{
+		"no service found": {
+			handler:      Handler(services),
+			target:       "example.com",
+			expectedCode: http.StatusNotFound,
+		},
+		"bad router": {
+			handler:      Handler(services),
+			target:       "bad.example.com",
+			expectedCode: http.StatusInternalServerError,
+		},
+		"no service found TLS": {
+			handler:      TLSHandler(services),
+			target:       "foo.example.com",
+			expectedCode: http.StatusNotFound,
+		},
 	}
 
-	r, w := httptest.NewRequest(http.MethodGet, "http://example.com", nil), httptest.NewRecorder()
-	handler(services, false).ServeHTTP(w, r)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://"+test.target, nil)
+			test.handler.ServeHTTP(w, r)
 
-	res := w.Result()
-	defer res.Body.Close()
-	expectedCode := http.StatusNotFound
+			res := w.Result()
+			defer res.Body.Close()
 
-	if res.StatusCode != expectedCode {
-		t.Errorf("expected code %d got code %d", expectedCode, res.StatusCode)
+			if res.StatusCode != test.expectedCode {
+				t.Errorf("expected code %d got code %d", test.expectedCode, res.StatusCode)
+			}
+		})
 	}
 }
 
 func TestHandlerRedirectToTLS(t *testing.T) {
-	r, w := httptest.NewRequest(http.MethodGet, "http://example.com", nil), httptest.NewRecorder()
+	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
 	services := map[string]Service{
 		"example.com": {
@@ -82,22 +118,32 @@ func TestHandlerRedirectToTLS(t *testing.T) {
 	}
 }
 
-func TestTLSHandlerNotFound(t *testing.T) {
-	r, w := httptest.NewRequest(http.MethodGet, "http://example.com", nil), httptest.NewRecorder()
+type mockMiddleware struct{}
 
+func (m *mockMiddleware) Handle(_ http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Mock-Middleware", "true")
+	})
+}
+
+func TestHandlerAddsMiddlewares(t *testing.T) {
 	services := map[string]Service{
 		"example.com": {
-			TLS:    false,
+			Middlewares: []middlewares.Middleware{
+				&mockMiddleware{},
+			},
 			Router: NewRedirect(url.URL{}),
 		},
 	}
 
-	// Try access a service through HTTPS when it is specified as non TLS.
-	TLSHandler(services).ServeHTTP(w, r)
+	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
-	expectedCode := http.StatusNotFound
+	Handler(services).ServeHTTP(w, r)
 
-	if w.Code != expectedCode {
-		t.Errorf("expected code %d got code %d", expectedCode, w.Code)
+	res := w.Result()
+	defer res.Body.Close()
+
+	if res.Header.Get("X-Mock-Middleware") != "true" {
+		t.Errorf("expected middleware to be added")
 	}
 }

@@ -30,21 +30,6 @@ func remoteFunc(remote *url.URL, err error) func(http.ResponseWriter, *http.Requ
 	}
 }
 
-func TestHealthDefaultValues(t *testing.T) {
-	expected := Info{
-		Path:     "/",
-		TLS:      false,
-		Interval: 30 * time.Second,
-		Timeout:  5 * time.Second,
-		Method:   "GET",
-	}
-
-	actual := New(Info{}).Info
-	if !reflect.DeepEqual(actual, expected) {
-		t.Errorf("expected %v, got %v", expected, actual)
-	}
-}
-
 func (m *mockServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != m.path {
 		w.WriteHeader(http.StatusNotFound)
@@ -59,6 +44,21 @@ func (m *mockServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	status := m.healthSequence[0]
 	m.healthSequence = m.healthSequence[1:]
 	w.WriteHeader(status)
+}
+
+func TestHealthDefaultValues(t *testing.T) {
+	expected := Info{
+		Path:     "/",
+		TLS:      false,
+		Interval: 30 * time.Second,
+		Timeout:  5 * time.Second,
+		Method:   "GET",
+	}
+
+	actual := New(Info{}).Info
+	if !reflect.DeepEqual(actual, expected) {
+		t.Errorf("expected %v, got %v", expected, actual)
+	}
 }
 
 func TestConstructHealthRemote(t *testing.T) {
@@ -195,8 +195,8 @@ func TestHealthLaunch(t *testing.T) {
 			results := make([]bool, 0)
 
 			for {
-				res := <-health.c
-				results = append(results, res.Up)
+				<-health.Check()
+				results = append(results, health.Up())
 				if len(results) == len(test.expected) {
 					break
 				}
