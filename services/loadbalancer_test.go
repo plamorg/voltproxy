@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"reflect"
 	"testing"
 
 	"github.com/plamorg/voltproxy/services/health"
@@ -208,6 +209,10 @@ func TestLoadBalancerFailover(t *testing.T) {
 			host := next.Host
 			if host != test.expected {
 				t.Fatalf("expected %s, got %s", test.expected, host)
+			}
+
+			if !reflect.DeepEqual(lb.services, test.services) {
+				t.Fatalf("services were unexpectedly modified")
 			}
 		})
 	}

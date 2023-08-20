@@ -78,10 +78,12 @@ func (l *LoadBalancer) Data() *Data {
 
 // nextService uses the attached selection strategy to select the next server that is healthy.
 func (l *LoadBalancer) nextService() uint {
+	services := l.services
+
 	next := l.strategy.Select()
 	poolSize := len(l.services)
-	for poolSize > 1 && !l.services[next].Data().Health.Up() {
-		l.services = append(l.services[:next], l.services[next+1:]...)
+	for poolSize > 1 && !services[next].Data().Health.Up() {
+		services = append(services[:next], services[next+1:]...)
 		poolSize--
 		strategy := selection.NewStrategy(l.info.Strategy, uint(poolSize))
 		next = strategy.Select()
