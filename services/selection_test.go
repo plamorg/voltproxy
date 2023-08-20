@@ -171,7 +171,7 @@ func TestRandomSelect(t *testing.T) {
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
 			actual := make([]int, 0, len(test.expected))
-			r := &Random{rng: rand.New(rand.NewSource(0)).Intn}
+			r := &Random{rng: rand.New(rand.NewSource(0)).Intn} // #nosec
 			for i := 0; i < len(test.expected); i++ {
 				actual = append(actual, r.Select(test.services, nil))
 			}
