@@ -448,12 +448,13 @@ func TestConfigServiceListLoadBalancerError(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
+			lbInfo := test.lbInfo
 			conf := Config{
 				Services: serviceMap{
 					"lb": {
 						Host: "a",
 						routers: routers{
-							LoadBalancer: &test.lbInfo,
+							LoadBalancer: &lbInfo,
 						},
 					},
 				},
