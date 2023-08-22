@@ -65,14 +65,14 @@ type Random struct {
 
 // Select returns the index of the next service to use using a random strategy.
 func (r *Random) Select(services []Service, _ *http.Request) int {
-	if len(services) == 0 {
-		return 0
-	}
 	var validIndices []int
 	for i, item := range services {
 		if item.Health.Up() {
 			validIndices = append(validIndices, i)
 		}
+	}
+	if len(validIndices) == 0 {
+		return 0
 	}
 	return validIndices[r.rng(len(validIndices))]
 }

@@ -153,6 +153,14 @@ func TestRandomSelect(t *testing.T) {
 			services: []Service{},
 			expected: []int{0, 0, 0},
 		},
+		"all down": {
+			services: []Service{
+				{Health: health.Always(false)},
+				{Health: health.Always(false)},
+				{Health: health.Always(false)},
+			},
+			expected: []int{0, 0, 0},
+		},
 		"varying health": {
 			services: []Service{
 				{Health: health.Always(false)},
