@@ -8,6 +8,8 @@ import (
 	"strconv"
 )
 
+var errNoServices = fmt.Errorf("no services in pool")
+
 const (
 	lbCookiePrefix     = "voltproxy-lb-"
 	lbCookieNameLength = 8
@@ -42,12 +44,18 @@ func NewLoadBalancer(host string, strategy Strategy, persistent bool, services [
 }
 
 func (l *LoadBalancer) persistentService(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
+	if len(l.services) == 0 {
+		return nil, errNoServices
+	}
 	if cookie, err := r.Cookie(l.cookieName); err == nil {
 		cookieNext, err := strconv.ParseUint(cookie.Value, lbCookieBase, lbCookieBitSize)
-		if err == nil && l.services[cookieNext].Health.Up() {
+		validCookie := err == nil && cookieNext < uint64(len(l.services))
+
+		if validCookie && l.services[cookieNext].Health.Up() {
 			return l.services[cookieNext].Router.Route(w, r)
 		}
 	}
+
 	next := l.strategy.Select(l.services, r)
 	cookie := &http.Cookie{
 		Name:     l.cookieName,
@@ -60,6 +68,9 @@ func (l *LoadBalancer) persistentService(w http.ResponseWriter, r *http.Request)
 
 // Route returns the remote URL of the next service in the load balancer.
 func (l *LoadBalancer) Route(w http.ResponseWriter, r *http.Request) (*url.URL, error) {
+	if len(l.services) == 0 {
+		return nil, errNoServices
+	}
 	if l.persistent {
 		return l.persistentService(w, r)
 	}
