@@ -37,24 +37,16 @@ func (c *Config) Services(docker dockerapi.Docker) (map[string]*services.Service
 	}
 
 	nameService := make(map[string]*services.Service)
-	loadBalancers := make(map[string]*services.LoadBalancer)
-
 	for name, service := range c.ServiceConfig {
-		if err := service.validate(); err != nil {
+		if err := service.ensureOneRouter(); err != nil {
 			return nil, fmt.Errorf("%w: %w", errInvalidConfig, err)
 		}
-		var router services.Router
 		if service.LoadBalancer != nil {
-			strategy, err := services.NewStrategy(service.LoadBalancer.Strategy)
-			if err != nil {
-				return nil, fmt.Errorf("%w: %s: %w", errInvalidConfig, name, err)
-			}
-			loadBalancers[name] = services.NewLoadBalancer(
-				service.Host,
-				strategy,
-				service.LoadBalancer.Persistent,
-			)
-		} else if service.Container != nil {
+			continue
+		}
+
+		var router services.Router
+		if service.Container != nil {
 			router = services.NewContainer(
 				service.Container.Name,
 				service.Container.Network,
@@ -68,6 +60,7 @@ func (c *Config) Services(docker dockerapi.Docker) (map[string]*services.Service
 			}
 			router = services.NewRedirect(*remote)
 		}
+
 		nameService[name] = &services.Service{
 			TLS:         service.TLS,
 			Middlewares: service.Middlewares.List(),
@@ -76,22 +69,8 @@ func (c *Config) Services(docker dockerapi.Docker) (map[string]*services.Service
 		}
 	}
 
-	for name, lb := range loadBalancers {
-		var services []*services.Service
-		for _, serviceName := range c.ServiceConfig[name].LoadBalancer.ServiceNames {
-			if s, ok := nameService[serviceName]; ok {
-				services = append(services, s)
-			} else {
-				return nil, fmt.Errorf("%w: %s: %w %s", errInvalidConfig, name, errNoServiceWithName, serviceName)
-			}
-		}
-		lb.SetServices(services)
-		if service, ok := nameService[name]; ok {
-			service.Router = lb
-			nameService[name] = service
-		} else {
-			return nil, fmt.Errorf("%w: %s: %w", errInvalidConfig, name, errNoServiceWithName)
-		}
+	if err := parseLoadBalancers(c.ServiceConfig, nameService); err != nil {
+		return nil, fmt.Errorf("%w: %w", errInvalidConfig, err)
 	}
 
 	m := make(map[string]*services.Service)
@@ -99,4 +78,42 @@ func (c *Config) Services(docker dockerapi.Docker) (map[string]*services.Service
 		m[service.Host] = nameService[name]
 	}
 	return m, nil
+}
+
+func parseLoadBalancers(conf serviceConfig, nameService map[string]*services.Service) error {
+	tempNameService := make(map[string]*services.Service)
+	for name, service := range conf {
+		if service.LoadBalancer == nil {
+			continue
+		}
+
+		strategy, err := services.NewStrategy(service.LoadBalancer.Strategy)
+		if err != nil {
+			return err
+		}
+
+		lb := services.NewLoadBalancer(service.Host, strategy, service.LoadBalancer.Persistent)
+
+		var lbServices []*services.Service
+		for _, serviceName := range conf[name].LoadBalancer.ServiceNames {
+			if s, ok := nameService[serviceName]; ok {
+				lbServices = append(lbServices, s)
+			} else {
+				return fmt.Errorf("%w: %s", errNoServiceWithName, serviceName)
+			}
+		}
+		lb.SetServices(lbServices)
+
+		tempNameService[name] = &services.Service{
+			TLS:         service.TLS,
+			Middlewares: service.Middlewares.List(),
+			Health:      createHealthChecker(service.Health),
+			Router:      lb,
+		}
+	}
+
+	for name, service := range tempNameService {
+		nameService[name] = service
+	}
+	return nil
 }

@@ -60,22 +60,20 @@ func TestConfigServicesError(t *testing.T) {
 			},
 			err: errDuplicateHost,
 		},
-		"multiple services": {
+		"multiple routers": {
 			services: serviceConfig{
 				"foo": {
-					Host: "example.com",
 					routers: routers{
 						Container: &containerInfo{},
 						Redirect:  "https://example.com",
 					},
 				},
 			},
-			err: errMustHaveOneService,
+			err: errMustHaveOneRouter,
 		},
 		"invalid strategy": {
 			services: serviceConfig{
 				"foo": {
-					Host: "example.com",
 					routers: routers{
 						LoadBalancer: &loadBalancerInfo{
 							Strategy: "invalid",
@@ -88,7 +86,6 @@ func TestConfigServicesError(t *testing.T) {
 		"invalid redirect": {
 			services: serviceConfig{
 				"foo": {
-					Host: "example.com",
 					routers: routers{
 						Redirect: "$%^&*",
 					},
@@ -99,7 +96,6 @@ func TestConfigServicesError(t *testing.T) {
 		"load balancer with invalid service name": {
 			services: serviceConfig{
 				"foo": {
-					Host: "example.com",
 					routers: routers{
 						LoadBalancer: &loadBalancerInfo{
 							ServiceNames: []string{"invalid"},
@@ -107,7 +103,38 @@ func TestConfigServicesError(t *testing.T) {
 					},
 				},
 			},
-			err: errInvalidConfig,
+			err: errNoServiceWithName,
+		},
+		"load balancer tries to load balance itself": {
+			services: serviceConfig{
+				"foo": {
+					routers: routers{
+						LoadBalancer: &loadBalancerInfo{
+							ServiceNames: []string{"foo"},
+						},
+					},
+				},
+			},
+			err: errNoServiceWithName,
+		},
+		"load balancer tries to load balance another load balancer": {
+			services: serviceConfig{
+				"foo": {
+					routers: routers{
+						LoadBalancer: &loadBalancerInfo{
+							ServiceNames: []string{"bar"},
+						},
+					},
+				},
+				"bar": {
+					routers: routers{
+						LoadBalancer: &loadBalancerInfo{
+							ServiceNames: []string{},
+						},
+					},
+				},
+			},
+			err: errNoServiceWithName,
 		},
 	}
 

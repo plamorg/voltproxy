@@ -15,10 +15,10 @@ import (
 )
 
 var (
-	errInvalidConfig      = fmt.Errorf("invalid config")
-	errMustHaveOneService = fmt.Errorf("must have exactly one service")
-	errNoServiceWithName  = fmt.Errorf("no service with name")
-	errDuplicateHost      = fmt.Errorf("duplicate host")
+	errInvalidConfig     = fmt.Errorf("invalid config")
+	errMustHaveOneRouter = fmt.Errorf("must have exactly one router")
+	errNoServiceWithName = fmt.Errorf("no service with name")
+	errDuplicateHost     = fmt.Errorf("duplicate host")
 )
 
 type containerInfo struct {
@@ -39,7 +39,7 @@ type routers struct {
 	LoadBalancer *loadBalancerInfo `yaml:"loadBalancer"`
 }
 
-func (r *routers) validate() error {
+func (r *routers) ensureOneRouter() error {
 	v := reflect.ValueOf(*r)
 	count := 0
 	for i := 0; i < v.NumField(); i++ {
@@ -47,12 +47,12 @@ func (r *routers) validate() error {
 			continue
 		}
 		if count > 0 {
-			return errMustHaveOneService
+			return errMustHaveOneRouter
 		}
 		count++
 	}
 	if count == 0 {
-		return errMustHaveOneService
+		return errMustHaveOneRouter
 	}
 	return nil
 }
