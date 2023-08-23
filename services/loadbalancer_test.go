@@ -20,10 +20,10 @@ func TestGenerateCookieName(t *testing.T) {
 }
 
 func TestLoadBalancerPersistentService(t *testing.T) {
-	lb := NewLoadBalancer("host", &Failover{}, true, []Service{})
+	lb := NewLoadBalancer("host", &Failover{}, true)
 	tests := map[string]struct {
 		cookie      *http.Cookie
-		services    []Service
+		services    []*Service
 		expectedURL string
 		expectedErr error
 	}{
@@ -32,7 +32,7 @@ func TestLoadBalancerPersistentService(t *testing.T) {
 				Name:  lb.cookieName,
 				Value: "1",
 			},
-			services:    []Service{},
+			services:    []*Service{},
 			expectedErr: errNoServices,
 		},
 		"cookie value out of bounds": {
@@ -40,7 +40,7 @@ func TestLoadBalancerPersistentService(t *testing.T) {
 				Name:  lb.cookieName,
 				Value: "5",
 			},
-			services: []Service{
+			services: []*Service{
 				{
 					Health: health.Always(true),
 					Router: NewRedirect(url.URL{Scheme: "http", Host: "example.com"}),
@@ -49,7 +49,7 @@ func TestLoadBalancerPersistentService(t *testing.T) {
 			expectedURL: "http://example.com",
 		},
 		"no cookie": {
-			services: []Service{
+			services: []*Service{
 				{
 					Health: health.Always(true),
 					Router: NewRedirect(url.URL{Scheme: "http", Host: "foo.example.com"}),
@@ -66,7 +66,7 @@ func TestLoadBalancerPersistentService(t *testing.T) {
 				Name:  lb.cookieName,
 				Value: "1",
 			},
-			services: []Service{
+			services: []*Service{
 				{
 					Health: health.Always(true),
 					Router: NewRedirect(url.URL{Scheme: "http", Host: "wrong.example.com"}),
@@ -104,16 +104,16 @@ func TestLoadBalancerPersistentService(t *testing.T) {
 func TestLoadBalancerRoute(t *testing.T) {
 	tests := map[string]struct {
 		persistent  bool
-		services    []Service
+		services    []*Service
 		expectedURL string
 		expectedErr error
 	}{
 		"no services": {
-			services:    []Service{},
+			services:    []*Service{},
 			expectedErr: errNoServices,
 		},
 		"with services": {
-			services: []Service{
+			services: []*Service{
 				{
 					Health: health.Always(true),
 					Router: NewRedirect(url.URL{Scheme: "http", Host: "foo.example.com"}),
@@ -129,7 +129,8 @@ func TestLoadBalancerRoute(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			lb := NewLoadBalancer("host", &Failover{}, false, test.services)
+			lb := NewLoadBalancer("host", &Failover{}, false)
+			lb.SetServices(test.services)
 
 			w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 

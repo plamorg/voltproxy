@@ -39,23 +39,23 @@ func listenTLS(handler http.Handler, timeout time.Duration, tlsConfig *tls.Confi
 }
 
 func main() {
-	confBytes, err := os.ReadFile("./config.yml")
+	confContent, err := os.ReadFile("./config.yml")
 	if err != nil {
 		slog.Error("Error while reading configuration file", slog.Any("error", err))
 		os.Exit(1)
 	}
 
-	conf, err := config.Parse(confBytes)
+	conf, err := config.New(confContent)
 	if err != nil {
 		slog.Error("Error while parsing configuration file", slog.Any("error", err))
 		os.Exit(1)
 	}
 
-	if err = conf.Log.Initialize(); err != nil {
+	if err = conf.LogConfig.Initialize(); err != nil {
 		slog.Error("Error while initializing logging", slog.Any("error", err))
 		os.Exit(1)
 	}
-	slog.Info("Initialized logging", slog.Any("logger", conf.Log))
+	slog.Info("Initialized logging", slog.Any("logger", conf.LogConfig))
 
 	docker, err := dockerapi.NewClient()
 	if err != nil {
@@ -64,7 +64,7 @@ func main() {
 	}
 	slog.Info("Created Docker client", slog.Any("client", docker))
 
-	serviceMap, err := conf.ServiceMap(docker)
+	serviceMap, err := conf.Services(docker)
 	if err != nil {
 		slog.Error("Error while creating service list", slog.Any("error", err))
 		os.Exit(1)

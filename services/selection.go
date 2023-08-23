@@ -11,7 +11,7 @@ var errInvalidStrategy = fmt.Errorf("invalid strategy")
 // Strategy defines the interface for a load balancer selection strategy.
 type Strategy interface {
 	// Select returns the index of the next service to use.
-	Select([]Service, *http.Request) int
+	Select([]*Service, *http.Request) int
 }
 
 // NewStrategy converts a string to a Strategy.
@@ -33,7 +33,7 @@ func NewStrategy(strategy string) (Strategy, error) {
 type Failover struct{}
 
 // Select returns the index of the first service that is healthy.
-func (f *Failover) Select(services []Service, _ *http.Request) int {
+func (f *Failover) Select(services []*Service, _ *http.Request) int {
 	for i, item := range services {
 		if item.Health.Up() {
 			return i
@@ -48,7 +48,7 @@ type RoundRobin struct {
 }
 
 // Select returns the index of the next service to use using a round-robin strategy.
-func (r *RoundRobin) Select(services []Service, _ *http.Request) int {
+func (r *RoundRobin) Select(services []*Service, _ *http.Request) int {
 	for i := r.next; i < len(services)+r.next; i++ {
 		if services[i%len(services)].Health.Up() {
 			r.next = (i + 1) % len(services)
@@ -64,7 +64,7 @@ type Random struct {
 }
 
 // Select returns the index of the next service to use using a random strategy.
-func (r *Random) Select(services []Service, _ *http.Request) int {
+func (r *Random) Select(services []*Service, _ *http.Request) int {
 	var validIndices []int
 	for i, item := range services {
 		if item.Health.Up() {

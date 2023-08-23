@@ -26,7 +26,7 @@ type Service struct {
 }
 
 // LaunchHealthChecks starts the health checks for all services.
-func LaunchHealthChecks(services map[string]Service) {
+func LaunchHealthChecks(services map[string]*Service) {
 	for host, service := range services {
 		// This is a workaround for the loop variable problem.
 		// See: https://github.com/golang/go/wiki/LoopvarExperiment
@@ -49,16 +49,16 @@ func LaunchHealthChecks(services map[string]Service) {
 }
 
 // Handler returns a http.Handler that proxies requests to services, redirecting to TLS if applicable.
-func Handler(services map[string]Service) http.Handler {
+func Handler(services map[string]*Service) http.Handler {
 	return handler(services, false)
 }
 
 // TLSHandler returns a http.Handler that proxies requests to services with TLS enabled.
-func TLSHandler(services map[string]Service) http.Handler {
+func TLSHandler(services map[string]*Service) http.Handler {
 	return handler(services, true)
 }
 
-func handler(services map[string]Service, tls bool) http.Handler {
+func handler(services map[string]*Service, tls bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		logger := slog.Default().With(slog.String("host", r.Host), slog.Bool("tls", tls))
 

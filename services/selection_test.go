@@ -53,15 +53,15 @@ func TestNewStrategyError(t *testing.T) {
 
 func TestFailoverSelect(t *testing.T) {
 	tests := map[string]struct {
-		services []Service
+		services []*Service
 		expected []int
 	}{
 		"no services": {
-			services: []Service{},
+			services: []*Service{},
 			expected: []int{0, 0, 0},
 		},
 		"first service": {
-			services: []Service{
+			services: []*Service{
 				{Health: health.Always(true)},
 				{Health: health.Always(true)},
 				{Health: health.Always(true)},
@@ -69,7 +69,7 @@ func TestFailoverSelect(t *testing.T) {
 			expected: []int{0, 0, 0},
 		},
 		"skip failing services": {
-			services: []Service{
+			services: []*Service{
 				{Health: health.Always(false)},
 				{Health: health.Always(false)},
 				{Health: health.Always(true)},
@@ -77,7 +77,7 @@ func TestFailoverSelect(t *testing.T) {
 			expected: []int{2, 2, 2},
 		},
 		"all failing services": {
-			services: []Service{
+			services: []*Service{
 				{Health: health.Always(false)},
 				{Health: health.Always(false)},
 			},
@@ -101,15 +101,15 @@ func TestFailoverSelect(t *testing.T) {
 
 func TestRoundRobinSelect(t *testing.T) {
 	tests := map[string]struct {
-		services []Service
+		services []*Service
 		expected []int
 	}{
 		"no services": {
-			services: []Service{},
+			services: []*Service{},
 			expected: []int{0, 0, 0},
 		},
 		"wrap around": {
-			services: []Service{
+			services: []*Service{
 				{Health: health.Always(true)},
 				{Health: health.Always(true)},
 				{Health: health.Always(true)},
@@ -117,7 +117,7 @@ func TestRoundRobinSelect(t *testing.T) {
 			expected: []int{0, 1, 2, 0, 1, 2, 0, 1, 2},
 		},
 		"varying health": {
-			services: []Service{
+			services: []*Service{
 				{Health: health.Always(false)},
 				{Health: health.Always(true)},
 				{Health: health.Always(true)},
@@ -146,15 +146,15 @@ func TestRoundRobinSelect(t *testing.T) {
 
 func TestRandomSelect(t *testing.T) {
 	tests := map[string]struct {
-		services []Service
+		services []*Service
 		expected []int
 	}{
 		"no services": {
-			services: []Service{},
+			services: []*Service{},
 			expected: []int{0, 0, 0},
 		},
 		"all down": {
-			services: []Service{
+			services: []*Service{
 				{Health: health.Always(false)},
 				{Health: health.Always(false)},
 				{Health: health.Always(false)},
@@ -162,7 +162,7 @@ func TestRandomSelect(t *testing.T) {
 			expected: []int{0, 0, 0},
 		},
 		"varying health": {
-			services: []Service{
+			services: []*Service{
 				{Health: health.Always(false)},
 				{Health: health.Always(true)}, // 1
 				{Health: health.Always(true)}, // 2

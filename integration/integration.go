@@ -49,7 +49,7 @@ func (s *MockServer) SplitHostPort() (host, port string) {
 
 // Instance is a test instance of the reverse proxy corresponding to a config.
 type Instance struct {
-	serviceMap map[string]services.Service
+	serviceMap map[string]*services.Service
 	docker     *dockerapi.Mock
 	t          *testing.T
 	url        string
@@ -59,14 +59,14 @@ type Instance struct {
 // NewInstance creates a new instance of the reverse proxy with the given config.
 func NewInstance(t *testing.T, confData []byte, containers ...[]dockerapi.Container) *Instance {
 	t.Helper()
-	conf, err := config.Parse(confData)
+	conf, err := config.New(confData)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	docker := dockerapi.NewMock(containers...)
 
-	serviceMap, err := conf.ServiceMap(docker)
+	serviceMap, err := conf.Services(docker)
 	if err != nil {
 		t.Fatal(err)
 	}

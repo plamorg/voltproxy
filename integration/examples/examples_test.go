@@ -21,18 +21,18 @@ func TestExamples(t *testing.T) {
 
 	for _, example := range examples {
 		t.Run(example, func(t *testing.T) {
-			confData, err := os.ReadFile(example)
+			confContent, err := os.ReadFile(example)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			conf, err := config.Parse(confData)
+			conf, err := config.New(confContent)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			docker := dockerapi.NewMock()
-			_, err = conf.ServiceMap(docker)
+			_, err = conf.Services(docker)
 			if err != nil {
 				t.Fatal(err)
 			}

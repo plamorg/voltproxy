@@ -23,7 +23,7 @@ func TestHandlerSuccess(t *testing.T) {
 		t.Fatalf("expected nil, got %v", err)
 	}
 
-	services := map[string]Service{
+	services := map[string]*Service{
 		"foo.example.com": {
 			TLS:    false,
 			Router: NewRedirect(url.URL{}),
@@ -49,7 +49,7 @@ func (b badRouter) Route(_ http.ResponseWriter, _ *http.Request) (*url.URL, erro
 }
 
 func TestHandlerErrors(t *testing.T) {
-	services := map[string]Service{
+	services := map[string]*Service{
 		"foo.example.com": {},
 		"bad.example.com": {
 			Router: badRouter{},
@@ -95,7 +95,7 @@ func TestHandlerErrors(t *testing.T) {
 func TestHandlerRedirectToTLS(t *testing.T) {
 	w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 
-	services := map[string]Service{
+	services := map[string]*Service{
 		"example.com": {
 			TLS:    true,
 			Router: NewRedirect(url.URL{}),
@@ -127,7 +127,7 @@ func (m *mockMiddleware) Handle(_ http.Handler) http.Handler {
 }
 
 func TestHandlerAddsMiddlewares(t *testing.T) {
-	services := map[string]Service{
+	services := map[string]*Service{
 		"example.com": {
 			Middlewares: []middlewares.Middleware{
 				&mockMiddleware{},
