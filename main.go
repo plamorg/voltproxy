@@ -38,51 +38,49 @@ func listenTLS(handler http.Handler, timeout time.Duration, tlsConfig *tls.Confi
 	os.Exit(1)
 }
 
+func logPanic(msg string, err error) {
+	slog.Error(msg, slog.Any("error", err))
+	os.Exit(1)
+}
+
 func main() {
 	confContent, err := os.ReadFile("./config.yml")
 	if err != nil {
-		slog.Error("Error while reading configuration file", slog.Any("error", err))
-		os.Exit(1)
+		logPanic("Error while reading configuration file", err)
 	}
 
 	conf, err := config.New(confContent)
 	if err != nil {
-		slog.Error("Error while parsing configuration file", slog.Any("error", err))
-		os.Exit(1)
+		logPanic("Error while parsing configuration file", err)
 	}
 
 	if err = conf.LogConfig.Initialize(); err != nil {
-		slog.Error("Error while initializing logging", slog.Any("error", err))
-		os.Exit(1)
+		logPanic("Error while initializing logging", err)
 	}
-	slog.Info("Initialized logging", slog.Any("logger", conf.LogConfig))
+	slog.Info("Logging enabled", slog.Any("logger", conf.LogConfig))
 
 	docker, err := dockerapi.NewClient()
 	if err != nil {
-		slog.Error("Error while creating Docker client", slog.Any("error", err))
-		os.Exit(1)
+		logPanic("Error while connecting to Docker", err)
 	}
-	slog.Info("Created Docker client", slog.Any("client", docker))
+	slog.Info("Connected to Docker", slog.Any("docker", docker))
 
 	serviceMap, err := conf.Services(docker)
 	if err != nil {
-		slog.Error("Error while creating service list", slog.Any("error", err))
-		os.Exit(1)
+		logPanic("Error while fetching services", err)
 	}
-	slog.Info("Created service list", slog.Int("count", len(serviceMap)))
 
 	services.LaunchHealthChecks(serviceMap)
 
 	tlsHosts := conf.TLSHosts()
-	slog.Info("Managing certificates for hosts", slog.Any("hosts", tlsHosts))
+	slog.Info("Managing certificates", slog.Any("hosts", tlsHosts))
 	certManager := autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
 		HostPolicy: autocert.HostWhitelist(tlsHosts...),
 		Cache:      autocert.DirCache("_certs"),
 	}
 
-	slog.Info("Listening...", slog.String("readTimeout", conf.ReadTimeout.String()))
-
+	slog.Info("Accepting connections on :80 and :443")
 	go listen(certManager.HTTPHandler(services.Handler(serviceMap)), conf.ReadTimeout)
 	listenTLS(services.TLSHandler(serviceMap), conf.ReadTimeout, certManager.TLSConfig())
 }
