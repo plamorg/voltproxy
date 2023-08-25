@@ -20,21 +20,13 @@ func TestGenerateCookieName(t *testing.T) {
 }
 
 func TestLoadBalancerPersistentService(t *testing.T) {
-	lb := NewLoadBalancer("host", &Failover{}, true)
+	lb := NewLoadBalancer("host", &Failover{}, true, []*Service{})
 	tests := map[string]struct {
 		cookie      *http.Cookie
 		services    []*Service
 		expectedURL string
 		expectedErr error
 	}{
-		"no services": {
-			cookie: &http.Cookie{
-				Name:  lb.cookieName,
-				Value: "1",
-			},
-			services:    []*Service{},
-			expectedErr: errNoServices,
-		},
 		"cookie value out of bounds": {
 			cookie: &http.Cookie{
 				Name:  lb.cookieName,
@@ -129,8 +121,7 @@ func TestLoadBalancerRoute(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			lb := NewLoadBalancer("host", &Failover{}, false)
-			lb.SetServices(test.services)
+			lb := NewLoadBalancer("host", &Failover{}, false, test.services)
 
 			w, r := httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "http://example.com", nil)
 

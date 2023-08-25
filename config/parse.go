@@ -92,8 +92,6 @@ func parseLoadBalancers(conf serviceConfig, nameService map[string]*services.Ser
 			return err
 		}
 
-		lb := services.NewLoadBalancer(service.Host, strategy, service.LoadBalancer.Persistent)
-
 		var lbServices []*services.Service
 		for _, serviceName := range conf[name].LoadBalancer.ServiceNames {
 			if s, ok := nameService[serviceName]; ok {
@@ -102,7 +100,13 @@ func parseLoadBalancers(conf serviceConfig, nameService map[string]*services.Ser
 				return fmt.Errorf("%w: %s", errNoServiceWithName, serviceName)
 			}
 		}
-		lb.SetServices(lbServices)
+
+		lb := services.NewLoadBalancer(
+			service.Host,
+			strategy,
+			service.LoadBalancer.Persistent,
+			lbServices,
+		)
 
 		tempNameService[name] = &services.Service{
 			TLS:         service.TLS,
