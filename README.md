@@ -100,8 +100,7 @@ version: "3.3"
 services:
   voltproxy:
     container_name: voltproxy
-    build:
-      context: .
+    image: claby2/voltproxy:latest
     restart: unless-stopped
     ports:
       - 80:80
@@ -111,8 +110,7 @@ services:
       - "./config.yml:/usr/src/voltproxy/config.yml"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
     networks:
-      # If proxying to another Docker container, ensure the containers are on this same network.
-      # This is optional if you are not proxying another Docker container.
+      # If proxying a Docker container, ensure the containers are connected to the same network.
       - service_net
 networks:
   service_net:
