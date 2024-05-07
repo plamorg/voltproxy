@@ -2,25 +2,8 @@ package middlewares
 
 import (
 	"log/slog"
-	"net"
 	"net/http"
 )
-
-const (
-	xForwardedFor    = "X-Forwarded-For"
-	xForwardedMethod = "X-Forwarded-Method"
-	xForwardedProto  = "X-Forwarded-Proto"
-	xForwardedHost   = "X-Forwarded-Host"
-	xForwardedURI    = "X-Forwarded-Uri"
-)
-
-var xForwardedHeaders = []string{
-	xForwardedFor,
-	xForwardedMethod,
-	xForwardedProto,
-	xForwardedHost,
-	xForwardedURI,
-}
 
 // AuthForward is a middleware that forwards the request to an authentication server and
 // proxies to the service if the authentication is successful.
@@ -68,18 +51,7 @@ func (a *AuthForward) Handle(next http.Handler) http.Handler {
 		}
 
 		if a.XForwarded {
-			host, _, err := net.SplitHostPort(r.RemoteAddr)
-			if err == nil {
-				authReq.Header.Set(xForwardedFor, host)
-			}
-			authReq.Header.Set(xForwardedMethod, r.Method)
-			if r.TLS != nil {
-				authReq.Header.Set(xForwardedProto, "https")
-			} else {
-				authReq.Header.Set(xForwardedProto, "http")
-			}
-			authReq.Header.Set(xForwardedHost, r.Host)
-			authReq.Header.Set(xForwardedURI, r.RequestURI)
+			xForward(authReq, *r)
 		} else {
 			for _, header := range xForwardedHeaders {
 				authReq.Header.Del(header)

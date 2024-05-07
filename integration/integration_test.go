@@ -228,7 +228,7 @@ services:
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusForbidden {
-		t.Fatalf("expected status code %d, got %d", http.StatusOK, res.StatusCode)
+		t.Fatalf("expected status code %d, got %d", http.StatusForbidden, res.StatusCode)
 	}
 
 	if !authServerRan {
@@ -444,5 +444,31 @@ services:
 
 	if !slices.Equal(expected, received) {
 		t.Fatalf("expected status codes %v, got %v", expected, received)
+	}
+}
+
+func TestXForward(t *testing.T) {
+	server := NewMockServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Forwarded-Host") == "" {
+			t.Errorf("expected X-Forwarded-Host header to be set")
+		}
+		w.WriteHeader(http.StatusOK)
+	})
+
+	conf := fmt.Sprintf(`
+services:
+  server:
+    host: server.example.com
+    redirect: "%s"
+    middlewares:
+      xForward:
+        enable: true`, server.URL())
+	i := NewInstance(t, []byte(conf), nil)
+
+	res := i.RequestHost("server.example.com")
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		t.Fatalf("expected status code %d, got %d", http.StatusOK, res.StatusCode)
 	}
 }

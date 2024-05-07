@@ -10,6 +10,7 @@ import (
 type Middlewares struct {
 	IPAllow     *IPAllow     `yaml:"ipAllow"`
 	AuthForward *AuthForward `yaml:"authForward"`
+	XForward    *XForward    `yaml:"xForward"`
 }
 
 // List returns a list of middlewares that are not nil.
