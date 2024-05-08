@@ -1,0 +1,9 @@
+# The xForward middleware is used to forward X-Forwarded-* headers to an upstream service.
+
+services:
+  secureService:
+    host: private.example.com
+    redirect: "http://172.3.2.1:4321"
+    middlewares:
+      xForward:
+        enable: true

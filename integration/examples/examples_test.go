@@ -12,6 +12,7 @@ func TestExamples(t *testing.T) {
 	examples := []string{
 		"./middlewares/auth-forward.yml",
 		"./middlewares/ip-allow.yml",
+		"./middlewares/x-forward.yml",
 		"./additional-configuration.yml",
 		"./basic.yml",
 		"./health-check.yml",
